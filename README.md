@@ -1,4 +1,4 @@
-# Tochi's Slave
+# Tochi's Discord Bot
 
 A simple discord bot for the Limited Edition legion in the game Aion Classic that interfaces with a PostgreSQL database
 
