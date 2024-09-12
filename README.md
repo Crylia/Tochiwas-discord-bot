@@ -15,3 +15,22 @@ Its best to run the bot in a docker container
   - Blacklist a player with a given reason
   - Updates a global message
   - Can check against individual players
+
+## TODO
+
+- Write tests
+  - Mirror production DB to test DB on start
+  - Figure out how to test discord function (probably fake the data)
+  - How to validate correct cronjob time? Fake system time?
+- Static
+  - Command to create new static with name, size, members
+    - Allow CRUD of members
+    - Give the members the corresponding role
+  - Create new test and voice channel that only member and admins can see
+    - Channels should mirror the name of the static
+  - Reminder for the statics with custom remind times (e.g. 1h early)
+  - Command that asks every user to confirm a set date and time for the static
+    - Make it always repeat on the same time, or just once (have to re create every time)
+  - Write easy to understand documentation and a HOWTO
+- Blacklist
+  - Limit command usage to admins, maybe go away from slash commands?
