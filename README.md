@@ -1,6 +1,6 @@
 # Tochi's Discord Bot
 
-A simple discord bot for the Limited Edition legion in the game Aion Classic that interfaces with a PostgreSQL database
+A simple discord bot for the Limited Edition guild in the game Aion Classic that interfaces with a PostgreSQL database
 
 The bot is made to run on a single server and will thus share the same database
 

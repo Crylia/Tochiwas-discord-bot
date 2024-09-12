@@ -1,12 +1,18 @@
 const { Client, GatewayIntentBits, EmbedBuilder, Partials, Routes } = require('discord.js')
 const { REST } = require('@discordjs/rest')
 const { SlashCommandBuilder } = require('@discordjs/builders')
+const {
+	initReactionPerRole,
+	messageReactionAdd,
+	messageReactionRemove,
+} = require('../features/reactionPerRole')
 
 const {
 	handleBlacklistAdd,
 	handleBlacklistCheck,
 	handleBlacklistShow,
 } = require('../features/blacklist')
+
 const {
 	handleBirthdayAdd,
 	handleBirthdayUpdate,
@@ -15,172 +21,97 @@ const {
 } = require('../features/birthday')
 
 const { startBirthdayCheckCron } = require('../tasks/checkBirthday')
+const { startEventCheckCron } = require('../tasks/eventReminder')
 
 const client = new Client({
 	intents: [
 		GatewayIntentBits.Guilds,
 		GatewayIntentBits.GuildMessages,
 		GatewayIntentBits.GuildMembers,
+		GatewayIntentBits.MessageContent,
+		GatewayIntentBits.GuildMessageReactions,
 	],
 	partials: [
 		Partials.Channel,
 	]
 })
 
-const createBlacklistEmbeds = (entries) => {
-	const embeds = [];
-	let currentEmbed = new EmbedBuilder()
-		.setTitle('Blacklisted Players')
-		.setColor('#EF9A9A');
+const createBlacklistEmbeds = (playerEntries, maxChars = 30) => {
+	const embeds = []
+	let embed = new EmbedBuilder()
+		.setColor('#0099ff')
+		.setTitle('Blacklist (Page 1)')
+		.setDescription('Players who have been blacklisted and the reasons.')
 
-	let currentEntries = [];
-	let first = true;
+	let fieldCount = 0
+	let pageIndex = 1
 
-	const breakTextIntoLines = (text, maxLength) => {
-		const words = text.split(' ');
-		const lines = [];
-		let currentLine = '';
+	playerEntries.forEach(([playerName, reason]) => {
+		let splitReason = []
+		while (reason.length > maxChars) {
+			let splitIndex = reason.lastIndexOf(' ', maxChars)
+			if (splitIndex === -1) splitIndex = maxChars
+			splitReason.push(reason.substring(0, splitIndex))
+			reason = reason.substring(splitIndex + 1)
+		}
+		splitReason.push(reason)
 
-		for (let i = 0; i < words.length; i++) {
-			if (words[i].length > maxLength) {
-				const splitWord = words[i].match(new RegExp(`.{1,${maxLength}}`, 'g')) || [];
-				for (let j = 0; j < splitWord.length; j++) {
-					if (j === 0 && currentLine) {
-						lines.push(currentLine.trim());
-						currentLine = '';
-					}
-					lines.push(splitWord[j]);
-				}
-			} else if ((currentLine + words[i]).length <= maxLength) {
-				currentLine += words[i] + ' ';
-			} else {
-				lines.push(currentLine.trim());
-				currentLine = words[i] + ' ';
-			}
+		const nameField = playerName || '\u200B'
+		const valueField = splitReason.join('\n').trim() || '\u200B'
+
+		if (valueField !== '\u200B') {
+			embed.addFields({ name: nameField, value: valueField, inline: true })
+			fieldCount++
 		}
 
-		if (currentLine) {
-			lines.push(currentLine.trim());
+		if (fieldCount >= 25) {
+			embeds.push(embed)
+			pageIndex++
+			embed = new EmbedBuilder()
+				.setColor('#0099ff')
+				.setTitle(`Blacklist (Page ${pageIndex})`)
+				.setDescription('Players who have been blacklisted and the reasons.')
+			fieldCount = 0
 		}
+	})
 
-		return lines;
-	};
-
-	const addEntryToEmbed = (entriesGroup) => {
-		let playerNames = '';
-		let reasons = '';
-		let reportedBys = '';
-
-		for (let i = 0; i < entriesGroup.length; i++) {
-			const entry = entriesGroup[i];
-			const name = entry.name || 'Unknown';
-			const reason = entry.reason || 'No reason provided';
-
-			const nameLines = breakTextIntoLines(name, 20);
-			const reasonLines = breakTextIntoLines(reason, 30);
-
-			const maxLines = Math.max(nameLines.length, reasonLines.length);
-
-			for (let j = 0; j < maxLines; j++) {
-				playerNames += (j < nameLines.length ? nameLines[j] : '\u200B') + '\n';
-				reasons += (j < reasonLines.length ? reasonLines[j] : '\u200B') + '\n';
-				reportedBys += (j === 0 ? entry.reportedby || 'Unknown' : '\u200B') + '\n';
-			}
-		}
-
-		let newFields = [];
-		if (first) {
-			newFields = [
-				{ name: 'Player', value: playerNames, inline: true },
-				{ name: 'Reason', value: reasons, inline: true },
-				{ name: 'Reported By', value: reportedBys, inline: true }
-			];
-			first = false;
-		} else {
-			newFields = [
-				{ name: '\u200B', value: playerNames, inline: true },
-				{ name: '\u200B', value: reasons, inline: true },
-				{ name: '\u200B', value: reportedBys, inline: true }
-			];
-		}
-
-		for (const field of newFields) {
-			currentEmbed.addFields(field);
-		}
-	};
-
-	for (let i = 0; i < entries.length; i++) {
-		const entry = entries[i];
-
-		const tempEntries = [...currentEntries, entry];
-		let tempPlayerNames = '';
-		let tempReasons = '';
-		let tempReportedBys = '';
-
-		for (let j = 0; j < tempEntries.length; j++) {
-			const name = tempEntries[j].name || 'Unknown';
-			const reason = tempEntries[j].reason || 'No reason provided';
-			const nameLines = breakTextIntoLines(name, 20);
-			const reasonLines = breakTextIntoLines(reason, 30);
-
-			const maxLines = Math.max(nameLines.length, reasonLines.length);
-
-			for (let k = 0; k < maxLines; k++) {
-				tempPlayerNames += (k < nameLines.length ? nameLines[k] : '\u200B') + '\n';
-				tempReasons += (k < reasonLines.length ? reasonLines[k] : '\u200B') + '\n';
-				tempReportedBys += (k === 0 ? tempEntries[j].reportedby || 'Unknown' : '\u200B') + '\n';
-			}
-		}
-
-		const exceedsLimit = (str) => str.length > 1024;
-
-		if (exceedsLimit(tempPlayerNames) || exceedsLimit(tempReasons) || exceedsLimit(tempReportedBys)) {
-			if (currentEntries.length > 0) {
-				addEntryToEmbed(currentEntries);
-				currentEntries = [];
-			}
-		}
-
-		currentEntries.push(entry);
+	if (fieldCount > 0) {
+		embeds.push(embed)
 	}
 
-	if (currentEntries.length > 0) {
-		addEntryToEmbed(currentEntries);
-	}
-
-	embeds.push(currentEmbed);
-
-	return embeds;
-};
-
+	return embeds
+}
 
 const updateGlobalMessage = async () => {
 	try {
-		let targetChannel = null;
+		let targetChannel = null
 
 		for (const [_, oauthGuild] of await client.guilds.fetch()) {
 			targetChannel = (await (await oauthGuild.fetch()).channels.fetch()).find(ch => ch.name === 'blacklist')
-			break;
+			break
 		}
 
 		if (!targetChannel) {
-			console.error('Channel with name "blacklist" not found.');
-			return;
+			console.error('Channel with name "blacklist" not found.')
+			return
 		}
 
-		const messages = await targetChannel.messages.fetch({ limit: 100 });
-		await Promise.all(messages.map(msg => msg.delete()));
+		const messages = await targetChannel.messages.fetch({ limit: 100 })
+		await Promise.all(messages.map(msg => msg.delete()))
 
-		const blacklistEntries = await handleBlacklistShow();
-		const embeds = createBlacklistEmbeds(blacklistEntries);
+		const blacklistEntries = await handleBlacklistShow()
+
+		const playerEntries = blacklistEntries.map(entry => [entry.name, entry.reason])
+
+		const embeds = createBlacklistEmbeds(playerEntries)
 
 		for (const embed of embeds)
-			await targetChannel.send({ embeds: [embed] });
+			await targetChannel.send({ embeds: [embed] })
 
 	} catch (error) {
-		console.error('Error updating global message:', error);
+		console.error('Error updating global message:', error)
 	}
-};
+}
 
 client.on('interactionCreate', async interaction => {
 	if (!interaction.isCommand()) return
@@ -208,7 +139,7 @@ client.on('interactionCreate', async interaction => {
 
 			const reason2 = await handleBlacklistCheck(player)
 			reason2 ?
-				await interaction.reply({ content: `** ${reason2.name}** is blacklisted for: ** ${reason2.reason || 'No reason provided.'}** (by ${reason2.reportedby || 'unknown'}).`, ephemeral: true }) :
+				await interaction.reply({ content: `** ${reason2.name}** is blacklisted for: ** ${reason2.reason || 'No reason provided.'}**`, ephemeral: true }) :
 				await interaction.reply({ content: `** ${player}** is not blacklisted.`, ephemeral: true })
 
 			break
@@ -257,17 +188,38 @@ client.on('interactionCreate', async interaction => {
 				await interaction.reply({ content: "Your birthday has been deleted.", ephemeral: true }) :
 				await interaction.reply({ content: "You don't have a birthday set.", ephemeral: true })
 			break
+		case 'static-create':
+
+			break
+		case 'static-delete':
+
+			break
+
+		case 'static-show':
+
+			break
 		default:
 			break
 	}
 })
+
+client.on('messageReactionAdd', async (reaction, user) => {
+	messageReactionAdd(user, reaction)
+})
+
+client.on('messageReactionRemove', async (reaction, user) => {
+	messageReactionRemove(user, reaction)
+})
+
 
 const rest = new REST({ version: '10' }).setToken(process.env.BOT_TOKEN)
 
 client.once('ready', async () => {
 	console.log(`Logged in as ${client.user.tag} `)
 	startBirthdayCheckCron(client)
+	startEventCheckCron(client)
 	updateGlobalMessage()
+	initReactionPerRole(client)
 })
 
 const connectDiscord = async () => {
