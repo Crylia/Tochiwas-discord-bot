@@ -1,17 +1,8 @@
-const { client } = require('./database')
+const { getClient } = require('./database')
 
 const CreateBirthday = async (user, birthday) => {
 	try {
-		const alreadyReportedResult = await client.query(`
-			SELECT discorduser FROM birthday
-			WHERE discorduser = $1;`,
-			[user]
-		)
-
-		if (alreadyReportedResult.rows.length === 1) {
-			return alreadyReportedResult.rows[0]
-		}
-
+		const client = getClient()
 		const userResult = await client.query(`
 			SELECT * FROM discorduser
 			WHERE name = $1;`,
@@ -26,13 +17,13 @@ const CreateBirthday = async (user, birthday) => {
 			)
 		}
 
-		await client.query(`
+		const res = await client.query(`
 			INSERT INTO birthday (date, discorduser)
 			VALUES ($1, $2);`,
 			[new Date(birthday.split('.').reverse().join('-')).toISOString().slice(0, 10), user]
 		)
 
-		return true
+		return res.rowCount > 0
 	} catch (error) {
 		console.error('Error creating birthday entry:', error)
 		return false
@@ -41,6 +32,8 @@ const CreateBirthday = async (user, birthday) => {
 
 const ReadBirthday = async (user) => {
 	try {
+		const client = getClient()
+
 		if (user) {
 			const res = await client.query(`
 			SELECT * FROM birthday
@@ -62,6 +55,8 @@ const ReadBirthday = async (user) => {
 
 const UpdateBirthday = async (user, birthday) => {
 	try {
+		const client = getClient()
+
 		if (!birthday) return false
 
 		await client.query(`
@@ -80,6 +75,8 @@ const UpdateBirthday = async (user, birthday) => {
 
 const DeleteBirthday = async (user) => {
 	try {
+		const client = getClient()
+
 		if (!user) return false
 
 		await client.query(`

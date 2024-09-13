@@ -1,34 +1,30 @@
-const { client } = require('./database')
+const { getClient } = require('./database')
 
 const CreateBlacklist = async (reportedUser, reason, reportedByUser) => {
 	try {
-		const alreadyReportedResult = await client.query(`
-			SELECT name FROM blacklist
-			WHERE name = $1`,
+		const client = getClient()
+
+		const alreadyReportedResult = await client.query(
+			"SELECT name FROM blacklist WHERE name = $1",
 			[reportedUser]
 		)
 
-		if (alreadyReportedResult.rows.length === 1) {
+		if (alreadyReportedResult.rows.length === 1)
 			return alreadyReportedResult.rows[0]
-		}
 
-		const userResult = await client.query(`
-			SELECT * FROM discorduser
-			WHERE name = $1;`,
+		const userResult = await client.query(
+			"SELECT * FROM discorduser WHERE name = $1",
 			[reportedByUser]
 		)
 
-		if (userResult.rows.length === 0) {
-			await client.query(`
-				INSERT INTO discorduser (name)
-				VALUES ($1);`,
+		if (userResult.rows.length === 0)
+			await client.query(
+				"INSERT INTO discorduser (name) VALUES ($1)",
 				[reportedByUser]
 			)
-		}
 
-		await client.query(`
-			INSERT INTO blacklist (name, reason, reportedby)
-			VALUES ($1, $2, $3);`,
+		await client.query(
+			"INSERT INTO blacklist (name, reason, reportedby) VALUES ($1, $2, $3)",
 			[reportedUser, reason, reportedByUser]
 		)
 
@@ -41,16 +37,17 @@ const CreateBlacklist = async (reportedUser, reason, reportedByUser) => {
 
 const ReadBlacklist = async (user) => {
 	try {
+		const client = getClient()
+
 		if (user) {
-			const res = await client.query(`
-				SELECT * FROM blacklist
-				WHERE name=$1`,
+			const res = await client.query(
+				"SELECT * FROM blacklist WHERE name=$1",
 				[user]
 			)
 			return res.rows[0] || false
 		} else {
-			const res = await client.query(`
-				SELECT * FROM blacklist`
+			const res = await client.query(
+				"SELECT * FROM blacklist"
 			)
 			return res.rows
 		}
@@ -62,12 +59,12 @@ const ReadBlacklist = async (user) => {
 
 const UpdateBlacklist = async (reportedUser, reason) => {
 	try {
+		const client = getClient()
+
 		if (!reportedUser) return false
 
-		await client.query(`
-			UPDATE blacklist
-			SET reason = $2
-			WHERE name = $1;`,
+		await client.query(
+			"UPDATE blacklist SET reason = $2 WHERE name = $1",
 			[reportedUser, reason]
 		)
 		return true
@@ -79,11 +76,12 @@ const UpdateBlacklist = async (reportedUser, reason) => {
 
 const DeleteBlacklist = async (user) => {
 	try {
+		const client = getClient()
+
 		if (!user) return false
 
-		await client.query(`
-			DELETE FROM blacklist
-			WHERE name = $1;`,
+		await client.query(
+			"DELETE FROM blacklist WHERE name = $1",
 			[user]
 		)
 		return true

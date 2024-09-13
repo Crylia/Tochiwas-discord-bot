@@ -1,22 +1,22 @@
-const { client } = require('./database')
+const { getClient } = require('./database')
 
 const CreateStatic = async (name, creator, members, size) => {
 	try {
-		await client.query(`
-			INSERT INTO static (name, creator, size)
-       VALUES ($1, $2, $3)
-       RETURNING id;`,
+		const client = getClient()
+
+		const result = await client.query(
+			"INSERT INTO static (name, creator, size) VALUES ($1, $2, $3) RETURNING id",
 			[name, creator, size]
 		)
 
-		const staticId = result.rows[0].id;
+		const staticId = result.rows[0].id
 
-		const memberValues = members.map(member => `(${staticId}, '${member}')`).join(',')
-
-		await client.query(`
-			INSERT INTO static_members (static_id, member)
-      VALUES ${memberValues};`
-		)
+		for (const member of members) {
+			await client.query(
+				"INSERT INTO static_members (static_id, member) VALUES ($1, $2)",
+				[staticId, member]
+			)
+		}
 
 		return true
 	} catch (error) {
@@ -27,9 +27,10 @@ const CreateStatic = async (name, creator, members, size) => {
 
 const ReadStatic = async (name) => {
 	try {
-		const res = await client.query(`
-			SELECT * FROM static
-			WHERE name = $1;`,
+		const client = getClient()
+
+		const res = await client.query(
+			"SELECT * FROM static WHERE name = $1",
 			[name]
 		)
 		return res.rows
@@ -41,9 +42,10 @@ const ReadStatic = async (name) => {
 
 const DeleteStatic = async (name) => {
 	try {
-		await client.query(`
-			DELETE FROM static
-			WHERE name = $1;`,
+		const client = getClient()
+
+		await client.query(
+			"DELETE FROM static WHERE name = $1",
 			[name]
 		)
 	} catch (error) {

@@ -1,4 +1,5 @@
 const { Client, GatewayIntentBits, Partials, Routes } = require('discord.js')
+require('dotenv').config()
 const { REST } = require('@discordjs/rest')
 const { SlashCommandBuilder } = require('@discordjs/builders')
 const {
@@ -23,6 +24,8 @@ const {
 
 const { startBirthdayCheckCron } = require('../tasks/checkBirthday')
 const { startEventCheckCron } = require('../tasks/eventReminder')
+
+const rest = new REST({ version: '10' }).setToken(process.env.BOT_TOKEN)
 
 const client = new Client({
 	intents: [
@@ -134,9 +137,6 @@ client.on('messageReactionAdd', async (reaction, user) => {
 client.on('messageReactionRemove', async (reaction, user) => {
 	messageReactionRemove(user, reaction)
 })
-
-
-const rest = new REST({ version: '10' }).setToken(process.env.BOT_TOKEN)
 
 client.once('ready', async () => {
 	console.log(`Logged in as ${client.user.tag} `)

@@ -1,25 +1,32 @@
 const { Client } = require('pg')
-require('dotenv').config()
 
-const DB_USER = process.env.DB_USER
-const DB_HOST = process.env.DB_HOST
-const DB_NAME = process.env.DB_NAME
-const DB_PASS = process.env.DB_PASS
 
-const client = new Client({
-	connectionString: `postgresql://${DB_USER}:${DB_PASS}@${DB_HOST}/${DB_NAME}`
-})
+let client = null
 
-const connectDatabase = async () => {
+const createClient = (config) => {
+	client = new Client(config);
+	return client;
+};
+
+const connectDatabase = async (client) => {
 	try {
 		await client.connect()
 		console.log('Database connected')
 	} catch (error) {
-		console.error('Database connection error:', err)
+		console.error('Database connection error:', error)
+		throw new Error('Connection failed');
 	}
 }
 
+const getClient = () => {
+	if (!client) {
+		throw new Error('Client has not been initialized. Call createClient first.');
+	}
+	return client;
+};
+
 module.exports = {
-	client,
+	createClient,
 	connectDatabase,
+	getClient,
 }

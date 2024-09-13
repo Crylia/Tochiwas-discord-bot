@@ -60,7 +60,7 @@ const editReactionMessage = async (client) => {
 			rolesMap.forEach((roleName, iconName) => {
 				const emoji = emojis.find(e => e.name === iconName)
 				if (emoji)
-					updatedContent += `${emoji}: \`${roleName}\`\n`
+					updatedContent += `${emoji}: \`${roleName}\`\n\n`
 				else
 					console.log(`Couldn't find emoji ${iconName}`)
 			})
@@ -118,7 +118,7 @@ const createReactionMessage = async (client) => {
 			for (const [iconName, roleName] of rolesMap) {
 				const emoji = emojis.find(e => e.name === iconName)
 				if (emoji)
-					message += `<:${emoji.name}:${emoji.id}> : \`${roleName}\`\n`
+					message += `<:${emoji.name}:${emoji.id}> : \`${roleName}\`\n\n`
 				else
 					console.log(`Emoji for ${iconName} not found`)
 			}

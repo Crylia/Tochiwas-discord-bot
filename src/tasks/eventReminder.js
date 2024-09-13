@@ -36,44 +36,43 @@ const getDayOfWeek = () => new Date(Date.UTC(new Date().getUTCFullYear(), new Da
 
 const startEventCheckCron = async (client) => {
 	cron.schedule('45 * * * *', async () => {
-		console.log('Checking for events...')
-		if (!eventCache.length) {
-			await FetchEvents();
-		}
+		await FetchEvents()
 
-		const rolesEventMap = await GetEventRole()
-
-		for (const [guildId, oauthGuild] of await client.guilds.fetch()) {
+		for (const [_, oauthGuild] of await client.guilds.fetch()) {
 			const guild = await oauthGuild.fetch()
 			const channel = (await guild.channels.fetch()).find(ch => ch.name === 'reminder')
 
 			if (!channel) continue
 
-			eventCache.forEach(event => {
-				let { schedule_id, event_name, start_time, end_time, day_of_week } = event;
-				console.log(!((!day_of_week || day_of_week === getDayOfWeek()) && isReminderTime(convertToUTC(start_time))))
-				// Abbort if its not time to send a reminder
-				if (!((!day_of_week || day_of_week === getDayOfWeek()) && isReminderTime(convertToUTC(start_time)))) return;
+			eventCache.forEach(async (event) => {
+				let { schedule_id, event_name, start_time, end_time, day_of_week } = event
+				if (!((!day_of_week || day_of_week === getDayOfWeek()) && isReminderTime(convertToUTC(start_time)))) return
 
-				const timeComparisonLink = `https://www.timeanddate.com/worldclock/fixedtime.html?iso=${convertToISO(start_time, new Date().toISOString().split('T')[0])}&msg=${encodeURIComponent(event_name)}`;
+				const rolesEventMap = await GetEventRole()
+				const role = guild.roles.cache.find(r => r.name === rolesEventMap.get(event_name))
+				const roleId = role ? role.id : null
 
-				console.log("Sending event...")
-				console.log(rolesEventMap.get(event_name))
 				const embed = new EmbedBuilder()
 					.setTitle(event_name)
-					.setDescription(`${event_name} starts at **${start_time} CEST** and ends at **${end_time} CEST**. \n<@${rolesEventMap.get(event_name)}>\n`)
+					.setDescription(`${event_name} starts at **${start_time} CEST** and ends at **${end_time} CEST**. \n ${roleId ? `<@&${roleId}>` : 'No role assigned'} \n`)
 					.addFields(
 						{ name: 'Day of Week', value: day_of_week ? day_of_week : 'Daily', inline: true },
-						{ name: 'Compare Time', value: `[Click here to compare event time to your local time](${timeComparisonLink})`, inline: true }
+						{
+							name: 'Compare Time',
+							value: `[Click here to compare event time to your local time](https://www.timeanddate.com/worldclock/fixedtime.html?iso=${convertToISO(start_time, new Date().toISOString().split('T')[0])}&msg=${encodeURIComponent(event_name)})`,
+							inline: true
+						}
 					)
 					.setFooter({ text: `Schedule ID: ${schedule_id}` })
-					.setColor('#00FF00');
+					.setColor('#00FF00')
 
-				channel.send({ embeds: [embed] }).catch(console.error);
-			});
+				await channel.send({ embeds: [embed] }).catch(console.error)
+			})
 		}
-	});
+	})
 }
+
+
 
 module.exports = {
 	startEventCheckCron,

@@ -1,9 +1,11 @@
-const { client } = require('./database')
+const { getClient } = require('./database')
 
 const ReadEvents = async () => {
   try {
-    const res = await client.query(`
-			SELECT * FROM event_times;`
+    const client = getClient()
+
+    const res = await client.query(
+      "SELECT * FROM event_times"
     )
     return res.rows
   } catch (error) {
@@ -14,8 +16,10 @@ const ReadEvents = async () => {
 
 const GetEventRole = async () => {
   try {
-    const res = await client.query(`
-      SELECT * FROM event_role_view;`
+    const client = getClient()
+
+    const res = await client.query(
+      "SELECT * FROM event_role_view"
     )
     const rolesEventMap = new Map()
     res.rows.forEach(row => rolesEventMap.set(row.event_name, row.role))
@@ -29,8 +33,10 @@ const GetEventRole = async () => {
 
 const GetIconRole = async () => {
   try {
-    const res = await client.query(`
-      SELECT role, icon_name FROM event_roles;`
+    const client = getClient()
+
+    const res = await client.query(
+      "SELECT role, icon_name FROM event_roles"
     )
     const rolesEventMap = new Map()
     res.rows.forEach(row => rolesEventMap.set(row.icon_name, row.role))
