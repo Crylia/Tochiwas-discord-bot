@@ -9,5 +9,12 @@
   },
   "scripts": {
     "test": "jest"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.10.0",
+    "eslint": "^9.10.0",
+    "globals": "^15.9.0",
+    "sequelize-auto": "^0.8.8",
+    "sequelize-cli": "^6.6.2"
   }
 }

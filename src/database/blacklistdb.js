@@ -1,99 +1,99 @@
-const { getClient } = require('./database')
+const { 
+  blacklist: Blacklist, 
+  discorduser: DiscordUser, 
+} = require('./models')
 
 const CreateBlacklist = async (reportedUser, reason, reportedByUser) => {
-	try {
-		const client = getClient()
+  try {
+    const existingBlacklist = await Blacklist.findOne({
+      where: {
+        name: reportedUser,
+      },
+    })
 
-		const alreadyReportedResult = await client.query(
-			"SELECT name FROM blacklist WHERE name = $1",
-			[reportedUser]
-		)
+    if (existingBlacklist) return existingBlacklist
 
-		if (alreadyReportedResult.rows.length === 1)
-			return alreadyReportedResult.rows[0]
+    const [reportingUser] = await DiscordUser.findOrCreate({
+      where: {
+        name: reportedByUser,
+      },
+      defaults: {
+        name: reportedByUser,
+      },
+    })
 
-		const userResult = await client.query(
-			"SELECT * FROM discorduser WHERE name = $1",
-			[reportedByUser]
-		)
+    const blacklistEntry = await Blacklist.create({
+      name: reportedUser,
+      reason,
+      reportedby: reportingUser.name,
+    })
 
-		if (userResult.rows.length === 0)
-			await client.query(
-				"INSERT INTO discorduser (name) VALUES ($1)",
-				[reportedByUser]
-			)
-
-		await client.query(
-			"INSERT INTO blacklist (name, reason, reportedby) VALUES ($1, $2, $3)",
-			[reportedUser, reason, reportedByUser]
-		)
-
-		return true
-	} catch (error) {
-		console.error('Error creating blacklist entry:', error)
-		return false
-	}
+    return blacklistEntry !== null
+  } catch (error) {
+    console.error('Error creating blacklist entry:', error)
+    return false
+  }
 }
 
-const ReadBlacklist = async (user) => {
-	try {
-		const client = getClient()
-
-		if (user) {
-			const res = await client.query(
-				"SELECT * FROM blacklist WHERE name=$1",
-				[user]
-			)
-			return res.rows[0] || false
-		} else {
-			const res = await client.query(
-				"SELECT * FROM blacklist"
-			)
-			return res.rows
-		}
-	} catch (error) {
-		console.error('Error reading blacklist table:', error)
-		return []
-	}
+const ReadBlacklist = async (userName) => {
+  try {
+    if (userName) {
+      const blacklistEntry = await Blacklist.findOne({
+        where: {
+          name: userName,
+        },
+      })
+      return blacklistEntry || false
+    } else {
+      const allBlacklistEntries = await Blacklist.findAll()
+      return allBlacklistEntries
+    }
+  } catch (error) {
+    console.error('Error reading blacklist table:', error)
+    return []
+  }
 }
 
 const UpdateBlacklist = async (reportedUser, reason) => {
-	try {
-		const client = getClient()
+  try {
+    if (!reportedUser) return false
 
-		if (!reportedUser) return false
+    const [updated] = await Blacklist.update(
+      { reason },
+      {
+        where: {
+          name: reportedUser,
+        },
+      }
+    )
 
-		await client.query(
-			"UPDATE blacklist SET reason = $2 WHERE name = $1",
-			[reportedUser, reason]
-		)
-		return true
-	} catch (error) {
-		console.error('Error updating blacklist table:', error)
-		return false
-	}
+    return updated > 0
+  } catch (error) {
+    console.error('Error updating blacklist table:', error)
+    return false
+  }
 }
 
-const DeleteBlacklist = async (user) => {
-	try {
-		const client = getClient()
+const DeleteBlacklist = async (userName) => {
+  try {
+    if (!userName) return false
 
-		if (!user) return false
+    const deleted = await Blacklist.destroy({
+      where: {
+        name: userName,
+      },
+    })
 
-		await client.query(
-			"DELETE FROM blacklist WHERE name = $1",
-			[user]
-		)
-		return true
-	} catch (error) {
-		console.error('Error deleting blacklist table:', error)
-		return false
-	}
+    return deleted > 0
+  } catch (error) {
+    console.error('Error deleting blacklist table:', error)
+    return false
+  }
 }
 
 module.exports = {
-	CreateBlacklist,
-	ReadBlacklist,
-	UpdateBlacklist,
-	DeleteBlacklist,
+  CreateBlacklist,
+  ReadBlacklist,
+  UpdateBlacklist,
+  DeleteBlacklist,
 }

@@ -1,61 +1,81 @@
-const { getClient } = require('./database')
+const { 
+  static: Static, 
+  static_members: StaticMembers, 
+  discorduser: DiscordUser, 
+} = require('./models')
 
 const CreateStatic = async (name, creator, members, size) => {
-	try {
-		const client = getClient()
+  try {
+    const staticEntry = await Static.create({
+      name,
+      creator,
+      size,
+    })
 
-		const result = await client.query(
-			"INSERT INTO static (name, creator, size) VALUES ($1, $2, $3) RETURNING id",
-			[name, creator, size]
-		)
+    const staticId = staticEntry.id
 
-		const staticId = result.rows[0].id
+    await Promise.all(
+      members.map(async member => {
+        const [user] = await DiscordUser.findOrCreate({
+          where: { 
+            name: member,
+          },
+          defaults: { 
+            name: member,
+          },
+        })
 
-		for (const member of members) {
-			await client.query(
-				"INSERT INTO static_members (static_id, member) VALUES ($1, $2)",
-				[staticId, member]
-			)
-		}
+        await StaticMembers.create({
+          static_id: staticId,
+          member: user.name,
+        })
+      })
+    )
 
-		return true
-	} catch (error) {
-		console.error('Error creating static entry:', error)
-		return false
-	}
+    return true
+  } catch (error) {
+    console.error('Error creating static entry:', error)
+    return false
+  }
 }
 
 const ReadStatic = async (name) => {
-	try {
-		const client = getClient()
-
-		const res = await client.query(
-			"SELECT * FROM static WHERE name = $1",
-			[name]
-		)
-		return res.rows
-	} catch (error) {
-		console.error('Error reading static entry:', error)
-		return false
-	}
+  try {
+    const staticEntry = await Static.findOne({
+      where: { name },
+    })
+    return staticEntry || false
+  } catch (error) {
+    console.error('Error reading static entry:', error)
+    return false
+  }
 }
 
 const DeleteStatic = async (name) => {
-	try {
-		const client = getClient()
+  try {
+    const staticEntry = await Static.findOne({
+      where: { name },
+    })
 
-		await client.query(
-			"DELETE FROM static WHERE name = $1",
-			[name]
-		)
-	} catch (error) {
-		console.error('Error deleting static entry:', error)
-		return false
-	}
+    if (!staticEntry) return false
+
+    await StaticMembers.destroy({
+      where: { 
+        static_id: staticEntry.id, 
+      },
+    })
+
+    await staticEntry.destroy()
+
+    return true
+  } catch (error) {
+    console.error('Error deleting static entry:', error)
+    return false
+  }
 }
 
 module.exports = {
-	CreateStatic,
-	ReadStatic,
-	DeleteStatic,
+  CreateStatic,
+  ReadStatic,
+  DeleteStatic,
 }

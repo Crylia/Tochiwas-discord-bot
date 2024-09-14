@@ -1,13 +1,13 @@
-const { getClient } = require('./database')
+const { 
+  event_schedule: EventTimes, 
+  event_role_view: EventRoleView, 
+  event_roles: EventRoles, 
+} = require('./models')
 
 const ReadEvents = async () => {
   try {
-    const client = getClient()
-
-    const res = await client.query(
-      "SELECT * FROM event_times"
-    )
-    return res.rows
+    const events = await EventTimes.findAll()
+    return events
   } catch (error) {
     console.error('Error reading event entries:', error)
     return false
@@ -16,34 +16,30 @@ const ReadEvents = async () => {
 
 const GetEventRole = async () => {
   try {
-    const client = getClient()
-
-    const res = await client.query(
-      "SELECT * FROM event_role_view"
-    )
+    const eventRoles = await EventRoleView.findAll()
     const rolesEventMap = new Map()
-    res.rows.forEach(row => rolesEventMap.set(row.event_name, row.role))
+
+    eventRoles.forEach(row => rolesEventMap.set(row.event_name, row.role))
 
     return rolesEventMap
   } catch (error) {
-    console.error(error)
+    console.error('Error fetching event roles:', error)
     return false
   }
 }
 
 const GetIconRole = async () => {
   try {
-    const client = getClient()
+    const eventIcons = await EventRoles.findAll({
+      attributes: ['role', 'icon_name'],
+    })
+    const rolesIconMap = new Map()
 
-    const res = await client.query(
-      "SELECT role, icon_name FROM event_roles"
-    )
-    const rolesEventMap = new Map()
-    res.rows.forEach(row => rolesEventMap.set(row.icon_name, row.role))
+    eventIcons.forEach(row => rolesIconMap.set(row.icon_name, row.role))
 
-    return rolesEventMap
+    return rolesIconMap
   } catch (error) {
-    console.error(error)
+    console.error('Error fetching icon roles:', error)
     return false
   }
 }
