@@ -1,7 +1,7 @@
 const { CreateStatic, ReadStatic, DeleteStatic } = require('../database/staticdb')
 
 const handleStaticAdd = async (name, creator, members, size) => {
-  if (!name || !createor || !members || !size) return false
+  if (!name || !creator || !members || !size) return false
 
   const result = await CreateStatic(name, creator, members, size)
 
@@ -24,8 +24,25 @@ const handleStaticDelete = async (name) => {
   return result
 }
 
+const handleStaticUpdateName = async (newName) => {
+
+}
+const handleStaticUpdateUser = async (user, action) => {
+
+}
+const handleStaticUpdateUsers = async (users, action) => {
+
+}
+const handleStaticUpdateSize = async (newSize) => {
+
+}
+
 module.exports = {
   handleStaticAdd,
   handleStaticGet,
   handleStaticDelete,
+  handleStaticUpdateName,
+  handleStaticUpdateUser,
+  handleStaticUpdateUsers,
+  handleStaticUpdateSize
 }

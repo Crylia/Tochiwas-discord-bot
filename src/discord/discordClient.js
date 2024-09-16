@@ -1,4 +1,4 @@
-const { Client, GatewayIntentBits, Partials, Routes } = require('discord.js')
+const { Client, GatewayIntentBits, Partials, Routes, PermissionFlagsBits, PermissionsBitField, ChannelFlags, ChannelManager, ChannelFlagsBitField, ChannelType } = require('discord.js')
 require('dotenv').config()
 const { REST } = require('@discordjs/rest')
 const { SlashCommandBuilder } = require('@discordjs/builders')
@@ -22,10 +22,22 @@ const {
   handleBirthdayDelete,
 } = require('../features/birthday')
 
+const {
+  handleStaticAdd,
+  handleStaticGet,
+  handleStaticDelete,
+  handleStaticUpdateName,
+  handleStaticUpdateUser,
+  handleStaticUpdateUsers,
+  handleStaticUpdateSize,
+} = require('../features/static')
+
 const { startBirthdayCheckCron } = require('../tasks/checkBirthday')
 const { startEventCheckCron } = require('../tasks/eventReminder')
 
 const rest = new REST({ version: '10' }).setToken(process.env.BOT_TOKEN)
+
+let server = null
 
 const client = new Client({
   intents: [
@@ -44,89 +56,170 @@ client.on('interactionCreate', async interaction => {
   if (!interaction.isCommand()) return
 
   switch (interaction.commandName) {
-  case 'blacklist':
-    const reportedUser = interaction.options.getString('player')
-    const reason = interaction.options.getString('reason')
-    const reportedByUser = interaction.user.username
+    case 'blacklist': {
+      const reportedUser = interaction.options.getString('player')
+      const reason = interaction.options.getString('reason')
+      const reportedByUser = interaction.user.username
 
-    const res = await handleBlacklistAdd(reportedUser, reason, reportedByUser)
-    if (res) {
-      if (res.name === reportedUser)
-        interaction.reply({ content: 'This user has already been reported', ephemeral: true })
-      else {
-        interaction.reply({ content: `Player ** ${reportedUser}** had been successfully reported for ${reason}`, ephemeral: true })
-        updateGlobalMessage(interaction)
+      const res = await handleBlacklistAdd(reportedUser, reason, reportedByUser)
+      if (res) {
+        if (res.name === reportedUser)
+          interaction.reply({ content: 'This user has already been reported', ephemeral: true })
+        else {
+          interaction.reply({ content: `Player ** ${reportedUser}** had been successfully reported for ${reason}`, ephemeral: true })
+          updateGlobalMessage(client)
+        }
+      } else
+        interaction.reply({ content: 'ERROR trying to add the player to the blacklist, please contact @Crylia', ephemeral: true })
+
+      break
+    } case 'blacklist-check-player': {
+      const player = interaction.options.getString('player')
+
+      const reason2 = await handleBlacklistCheck(player)
+      reason2 ?
+        await interaction.reply({ content: `** ${reason2.name}** is blacklisted for: ** ${reason2.reason || 'No reason provided.'}**`, ephemeral: true }) :
+        await interaction.reply({ content: `** ${player}** is not blacklisted.`, ephemeral: true })
+
+      break
+    } case 'birthday': {
+      const user = interaction.user.username
+      const birthday = interaction.options.getString('birthday')
+
+      // Matches format xx.xx.xxxx, later dd.mm.yyyy
+      const match = birthday.match(/^(\d{2})\.(\d{2})\.(\d{4})$/)
+      if (!match) {
+        await interaction.reply({ content: 'Invalid date format. Please use dd.mm.yyyy.', ephemeral: true })
+        return
       }
-    } else
-      interaction.reply({ content: 'ERROR trying to add the player to the blacklist, please contact @Crylia', ephemeral: true })
 
-    break
-  case 'blacklist-check-player':
-    const player = interaction.options.getString('player')
+      const day = parseInt(match[1], 10)
+      const month = parseInt(match[2], 10)
+      const year = parseInt(match[3], 10)
 
-    const reason2 = await handleBlacklistCheck(player)
-    reason2 ?
-      await interaction.reply({ content: `** ${reason2.name}** is blacklisted for: ** ${reason2.reason || 'No reason provided.'}**`, ephemeral: true }) :
-      await interaction.reply({ content: `** ${player}** is not blacklisted.`, ephemeral: true })
+      // Validates dd.mm ae legit, year doesnt matter for the birthday
+      const isValidDate = (day, month, year) => {
+        if (month < 1 || month > 12) return false
 
-    break
-  case 'birthday':
-    const user = interaction.user.username
-    const birthday = interaction.options.getString('birthday')
+        const daysInMonth = [31, ((year % 4 === 0 && year % 100 !== 0) || (year % 400 === 0) ? 29 : 28), 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+        return day > 0 && day <= daysInMonth[month - 1]
+      }
 
-    // Matches format xx.xx.xxxx, later dd.mm.yyyy
-    const match = birthday.match(/^(\d{2})\.(\d{2})\.(\d{4})$/)
-    if (!match) {
-      await interaction.reply({ content: 'Invalid date format. Please use dd.mm.yyyy.', ephemeral: true })
-      return
+      if (!isValidDate(day, month, year)) {
+        await interaction.reply({ content: 'Invalid date. Please enter a valid birthday as dd.mm.yyyy.', ephemeral: true })
+        return
+      }
+
+      await handleBirthdayCheck(user, birthday).length > 0 ?
+        await handleBirthdayUpdate(user, birthday) :
+        handleBirthdayAdd(user, birthday) ?
+          await interaction.reply({ content: `Set ${birthday} as your birthday.Everyone will be notified once the day arrives!`, ephemeral: true }) :
+          await interaction.reply({ content: 'Something went wrong when setting / updating your birthday, please contact @crylia', ephemeral: true })
+      break
+    } case 'birthday-check': {
+      const birthdayCheck = await handleBirthdayCheck(interaction.user.username)
+      birthdayCheck ?
+        await interaction.reply({ content: `Your birthday is currently set to ${new Date(birthdayCheck[0].date).toLocaleDateString('de-DE')}.`, ephemeral: true }) :
+        await interaction.reply({ content: 'You don\'t have a birthday set. Use the`birthday` command to set one.', ephemeral: true })
+      break
+    } case 'birthday-delete': {
+      await handleBirthdayDelete(interaction.user.username) ?
+        await interaction.reply({ content: 'Your birthday has been deleted.', ephemeral: true }) :
+        await interaction.reply({ content: 'You don\'t have a birthday set.', ephemeral: true })
+      break
+    } case 'static-create': {
+      const static_name = interaction.options.getString('name')
+      const static_size = interaction.options.getString('size')
+      let static_members = [interaction.user.username]
+
+      try {
+        const static_role = await interaction.guild.roles.create({
+          name: static_name,
+          color: 'BLUE',
+        })
+
+        interaction.member.roles.add(static_role)
+
+        for (const username of (interaction.options.getString('members')).split(',').map(name => name.trim())) {
+          const member = interaction.guild.members.cache.find(member => member.user.username === username)
+
+          if (member) {
+            static_members.push(member)
+            member.roles.add(static_role)
+          } else
+            console.log(`WARNING: Creating static: ${static_name} member named ${username} not found`)
+        }
+
+        let category = interaction.guild.channels.cache.find(channel => channel.name === 'Statics' && channel.type === ChannelType.GuildCategory)
+
+        if (!category) {
+          console.log(`ERROR: Creating static, couldn't find category Statics, ABBORTING`)
+
+          interaction.guild.roles.remove(static_role)
+        }
+
+        const static_text_channel = await interaction.guild.channels.create({
+          name: static_name,
+          type: ChannelType.GuildText,
+          parent: category.id,
+          permissionOverwrites: [
+            {
+              id: interaction.guild.id, // @everyone role
+              deny: [PermissionsBitField.Flags.ViewChannel] // Deny view for everyone
+            },
+            {
+              id: static_role.id, // Allow view for the static role
+              allow: [PermissionsBitField.Flags.ViewChannel],
+            }
+          ]
+        })
+
+        const static_voice_channel = await interaction.guild.channels.create({
+          name: static_name,
+          type: ChannelType.GuildVoice,
+          parent: category.id,
+          permissionOverwrites: [
+            {
+              id: interaction.guild.id, // @everyone role
+              deny: [PermissionsBitField.Flags.ViewChannel] // Deny view for everyone
+            },
+            {
+              id: static_role.id, // Allow view for the static role
+              allow: [PermissionsBitField.Flags.ViewChannel],
+            }
+          ],
+        })
+
+        const res = handleStaticAdd(static_name, static_members[0], static_members, static_size, static_role, static_text_channel, static_voice_channel)
+
+        if (res) {
+          interaction.reply({
+            content: `Static ${static_name} created. Current members are ${static_members}.`,
+            ephemeral: true
+          })
+        } else
+          interaction.reply({
+            content: `Error creating static, please contact @Crylia for help`,
+            ephemeral: true
+          })
+      } catch (error) {
+        console.error('Error creating static or assigning roles:', error)
+        interaction.reply({
+          content: 'An error occurred while creating the static. Please try again or contact an admin.',
+          ephemeral: true,
+        })
+      }
+      break
+    } case 'static-delete': {
+
+      break
+
+    } case 'static-show': {
+
+      break
+    } default: {
+      break
     }
-
-    const day = parseInt(match[1], 10)
-    const month = parseInt(match[2], 10)
-    const year = parseInt(match[3], 10)
-
-    // Validates dd.mm ae legit, year doesnt matter for the birthday
-    const isValidDate = (day, month, year) => {
-      if (month < 1 || month > 12) return false
-
-      const daysInMonth = [31, ((year % 4 === 0 && year % 100 !== 0) || (year % 400 === 0) ? 29 : 28), 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
-      return day > 0 && day <= daysInMonth[month - 1]
-    }
-
-    if (!isValidDate(day, month, year)) {
-      await interaction.reply({ content: 'Invalid date. Please enter a valid birthday as dd.mm.yyyy.', ephemeral: true })
-      return
-    }
-
-    await handleBirthdayCheck(user, birthday).length > 0 ?
-      await handleBirthdayUpdate(user, birthday) :
-      handleBirthdayAdd(user, birthday) ?
-        await interaction.reply({ content: `Set ${birthday} as your birthday.Everyone will be notified once the day arrives!`, ephemeral: true }) :
-        await interaction.reply({ content: 'Something went wrong when setting / updating your birthday, please contact @crylia', ephemeral: true })
-    break
-  case 'birthday-check':
-    const birthdayCheck = await handleBirthdayCheck(interaction.user.username)
-    birthdayCheck ?
-      await interaction.reply({ content: `Your birthday is currently set to ${new Date(birthdayCheck[0].date).toLocaleDateString('de-DE')}.`, ephemeral: true }) :
-      await interaction.reply({ content: 'You don\'t have a birthday set. Use the`birthday` command to set one.', ephemeral: true })
-    break
-  case 'birthday-delete':
-    await handleBirthdayDelete(interaction.user.username) ?
-      await interaction.reply({ content: 'Your birthday has been deleted.', ephemeral: true }) :
-      await interaction.reply({ content: 'You don\'t have a birthday set.', ephemeral: true })
-    break
-  case 'static-create':
-
-    break
-  case 'static-delete':
-
-    break
-
-  case 'static-show':
-
-    break
-  default:
-    break
   }
 })
 
@@ -166,6 +259,7 @@ const connectDiscord = async () => {
         .setName('birthday-delete')
         .setDescription('Delete your birthday, nobody will know when your birthday arrives :('),
       new SlashCommandBuilder()
+        .setDefaultMemberPermissions(PermissionsBitField.Flags.Administrator)
         .setName('blacklist')
         .setDescription('Add a player to a blacklist with a reason')
         .addStringOption(option =>
@@ -186,6 +280,24 @@ const connectDiscord = async () => {
             .setDescription('The in-game name of the player')
             .setRequired(true)
         ),
+      new SlashCommandBuilder()
+        .setName('static-create')
+        .setDescription('Create a new static with a voice and text channel just for your members.')
+        .addStringOption(option =>
+          option.setName('name')
+            .setDescription('Name of the static, the voice and test channel will be named after this.')
+            .setRequired(true)
+        )
+        .addStringOption(option =>
+          option.setName('size')
+            .setDescription('Number of members in the static.')
+            .setRequired(false)
+        )
+        .addStringOption(option =>
+          option.setName('members')
+            .setDescription('Optionally assign members here by a comma seperated list (user1,user2,user3...).')
+            .setRequired(false)
+        )
     ].map(command => command.toJSON())
 
     await rest.put(

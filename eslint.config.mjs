@@ -14,17 +14,14 @@ export default [
       'indent': ['error', 2],
       'linebreak-style': ['error', 'unix'],
       'comma-dangle': ['error', 'always-multiline'],
-      'no-unused-vars': ['error', { 
-        vars: 'all', 
-        args: 'after-used', 
-        ignoreRestSiblings: true,
-        caughtErrors: 'none',
-        argsIgnorePattern: '_',
-      }],
     },
   },
   {
     files: ['**/*.js'],
+    env:{
+      'node': true,
+      'commonjs': true,
+    },
     languageOptions: {
       sourceType: 'commonjs',
       ecmaVersion: 2021,
@@ -52,7 +49,7 @@ export default [
   },
   {
     languageOptions: {
-      globals: globals.browser,
+      globals: globals.node,
     },
   },
   pluginJs.configs.recommended,

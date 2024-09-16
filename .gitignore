@@ -1,6 +1,7 @@
-.env
+.env.prod
+.env.test
 node_modules/
 package-lock.json
-src/database/config/
+src/database/config/config.json
 src/database/migrations/
 src/database/seeders/

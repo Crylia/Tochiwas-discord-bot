@@ -4,3 +4,5 @@ node_modules
 tests/
 npm-debug.log
 .DS_Store
+.env.test
+.env.example

@@ -61,7 +61,6 @@ const createBlacklistEmbeds = (playerEntries, maxChars = 30) => {
   if (fieldCount > 0) {
     embeds.push(embed)
   }
-
   return embeds
 }
 
@@ -79,14 +78,16 @@ const updateGlobalMessage = async (client) => {
       return
     }
 
-    const messages = await targetChannel.messages.fetch({ limit: 100 })
+    const embeds = createBlacklistEmbeds(
+      (await handleBlacklistShow()).map(
+        entry => [entry.name, entry.reason]
+      )
+    )
+
+    // The message count will increase/decrese with a maximum of 1, so pulling the new page
+    // count + 1 will guarantee that all previous embeds will be deleted
+    const messages = await targetChannel.messages.fetch({ limit: embeds.length + 1 })
     await Promise.all(messages.map(msg => msg.delete()))
-
-    const blacklistEntries = await handleBlacklistShow()
-
-    const playerEntries = blacklistEntries.map(entry => [entry.name, entry.reason])
-
-    const embeds = createBlacklistEmbeds(playerEntries)
 
     for (const embed of embeds)
       await targetChannel.send({ embeds: [embed] })
@@ -95,7 +96,6 @@ const updateGlobalMessage = async (client) => {
     console.error('Error updating global message:', error)
   }
 }
-
 
 module.exports = {
   handleBlacklistAdd,

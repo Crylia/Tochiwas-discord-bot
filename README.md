@@ -15,6 +15,10 @@ Its best to run the bot in a docker container
   - Blacklist a player with a given reason
   - Updates a global message
   - Can check against individual players
+- Event Reminder
+  - Reminds roles for ingame events 15min ahead of time
+- Role assignment
+  - Assign your role by reacting to a message
 
 ## TODO
 
@@ -32,5 +36,3 @@ Its best to run the bot in a docker container
   - Command that asks every user to confirm a set date and time for the static
     - Make it always repeat on the same time, or just once (have to re create every time)
   - Write easy to understand documentation and a HOWTO
-- Blacklist
-  - Limit command usage to admins, maybe go away from slash commands?
