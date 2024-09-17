@@ -1,33 +1,39 @@
-const { 
-  static: Static, 
-  static_members: StaticMembers, 
-  discorduser: DiscordUser, 
+const {
+  static: Static,
+  static_members: StaticMembers,
+  discorduser: DiscordUser,
 } = require('./models')
 
-const CreateStatic = async (name, creator, members, size) => {
+const CreateStatic = async (name, creator, members, size, role_id, text_channel_id, voice_channel_id) => {
   try {
+    console.log(role_id, text_channel_id, voice_channel_id)
+
     const staticEntry = await Static.create({
       name,
       creator,
       size,
+      role_id,
+      text_channel_id,
+      voice_channel_id,
     })
 
     const staticId = staticEntry.id
 
     await Promise.all(
       members.map(async member => {
+        if (!member.username) return;
         const [user] = await DiscordUser.findOrCreate({
-          where: { 
-            name: member,
+          where: {
+            name: member.username,
           },
-          defaults: { 
-            name: member,
+          defaults: {
+            name: member.username,
           },
         })
 
         await StaticMembers.create({
           static_id: staticId,
-          member: user.name,
+          username: user.name,
         })
       })
     )
@@ -60,8 +66,8 @@ const DeleteStatic = async (name) => {
     if (!staticEntry) return false
 
     await StaticMembers.destroy({
-      where: { 
-        static_id: staticEntry.id, 
+      where: {
+        static_id: staticEntry.id,
       },
     })
 

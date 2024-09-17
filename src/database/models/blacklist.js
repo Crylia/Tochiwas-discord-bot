@@ -1,23 +1,23 @@
-const Sequelize = require('sequelize')
+const Sequelize = require('sequelize');
 module.exports = function(sequelize, DataTypes) {
   return sequelize.define('blacklist', {
     name: {
       type: DataTypes.STRING(100),
       allowNull: false,
-      primaryKey: true,
+      primaryKey: true
     },
     reason: {
       type: DataTypes.TEXT,
-      allowNull: false,
+      allowNull: false
     },
     reportedby: {
       type: DataTypes.STRING(100),
       allowNull: true,
       references: {
         model: 'discorduser',
-        key: 'name',
-      },
-    },
+        key: 'name'
+      }
+    }
   }, {
     sequelize,
     tableName: 'blacklist',
@@ -25,12 +25,12 @@ module.exports = function(sequelize, DataTypes) {
     timestamps: false,
     indexes: [
       {
-        name: 'blacklist_pkey',
+        name: "blacklist_pkey",
         unique: true,
         fields: [
-          { name: 'name' },
-        ],
+          { name: "name" },
+        ]
       },
-    ],
-  })
-}
+    ]
+  });
+};

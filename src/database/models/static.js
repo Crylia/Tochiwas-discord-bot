@@ -1,29 +1,41 @@
-const Sequelize = require('sequelize')
-module.exports = function(sequelize, DataTypes) {
+const Sequelize = require('sequelize');
+module.exports = function (sequelize, DataTypes) {
   return sequelize.define('static', {
     id: {
       autoIncrement: true,
       type: DataTypes.INTEGER,
       allowNull: false,
-      primaryKey: true,
+      primaryKey: true
     },
     name: {
       type: DataTypes.STRING(12),
       allowNull: false,
-      unique: 'unique_name',
+      unique: "unique_name"
     },
     creator: {
       type: DataTypes.STRING(255),
-      allowNull: false,
+      allowNull: false
     },
     size: {
       type: DataTypes.INTEGER,
-      allowNull: true,
+      allowNull: true
     },
     time: {
       type: DataTypes.DATE,
-      allowNull: true,
+      allowNull: true
     },
+    role_id: {
+      type: DataTypes.INTEGER,
+      allowNull: true // or false depending on your requirements
+    },
+    text_channel_id: {
+      type: DataTypes.STRING, // or INTEGER if IDs are numeric
+      allowNull: true // or false depending on your requirements
+    },
+    voice_channel_id: {
+      type: DataTypes.STRING, // or INTEGER if IDs are numeric
+      allowNull: true // or false depending on your requirements
+    }
   }, {
     sequelize,
     tableName: 'static',
@@ -31,19 +43,19 @@ module.exports = function(sequelize, DataTypes) {
     timestamps: false,
     indexes: [
       {
-        name: 'static_pkey',
+        name: "static_pkey",
         unique: true,
         fields: [
-          { name: 'id' },
-        ],
+          { name: "id" },
+        ]
       },
       {
-        name: 'unique_name',
+        name: "unique_name",
         unique: true,
         fields: [
-          { name: 'name' },
-        ],
+          { name: "name" },
+        ]
       },
-    ],
-  })
-}
+    ]
+  });
+};

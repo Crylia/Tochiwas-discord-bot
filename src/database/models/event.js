@@ -1,17 +1,18 @@
-const Sequelize = require('sequelize')
-module.exports = function(sequelize, DataTypes) {
-  return sequelize.define('event', {
+const Sequelize = require('sequelize');
+
+module.exports = function (sequelize, DataTypes) {
+  const Event = sequelize.define('event', {
     id: {
       autoIncrement: true,
       type: DataTypes.INTEGER,
       allowNull: false,
-      primaryKey: true,
+      primaryKey: true
     },
     name: {
       type: DataTypes.STRING(255),
       allowNull: false,
-      unique: 'event_name_key',
-    },
+      unique: 'event_name_key'
+    }
   }, {
     sequelize,
     tableName: 'event',
@@ -21,17 +22,23 @@ module.exports = function(sequelize, DataTypes) {
       {
         name: 'event_name_key',
         unique: true,
-        fields: [
-          { name: 'name' },
-        ],
+        fields: [{ name: 'name' }]
       },
       {
         name: 'event_pkey',
         unique: true,
-        fields: [
-          { name: 'id' },
-        ],
-      },
-    ],
-  })
-}
+        fields: [{ name: 'id' }]
+      }
+    ]
+  });
+
+  Event.associate = function (models) {
+    Event.hasMany(models.event_schedule, { as: 'event_schedules', foreignKey: 'event_id' });
+  };
+
+  Event.associate = function (models) {
+    Event.hasMany(models.event_roles, { as: 'event_roles', foreignKey: 'event_id' })
+  }
+
+  return Event;
+};

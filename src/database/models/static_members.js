@@ -1,5 +1,5 @@
-const Sequelize = require('sequelize')
-module.exports = function(sequelize, DataTypes) {
+const Sequelize = require('sequelize');
+module.exports = function (sequelize, DataTypes) {
   return sequelize.define('static_members', {
     static_id: {
       type: DataTypes.INTEGER,
@@ -7,8 +7,8 @@ module.exports = function(sequelize, DataTypes) {
       primaryKey: true,
       references: {
         model: 'static',
-        key: 'id',
-      },
+        key: 'id'
+      }
     },
     username: {
       type: DataTypes.STRING(100),
@@ -16,9 +16,9 @@ module.exports = function(sequelize, DataTypes) {
       primaryKey: true,
       references: {
         model: 'discorduser',
-        key: 'name',
-      },
-    },
+        key: 'name'
+      }
+    }
   }, {
     sequelize,
     tableName: 'static_members',
@@ -26,13 +26,13 @@ module.exports = function(sequelize, DataTypes) {
     timestamps: false,
     indexes: [
       {
-        name: 'static_members_pkey',
+        name: "static_members_pkey",
         unique: true,
         fields: [
-          { name: 'static_id' },
-          { name: 'username' },
-        ],
+          { name: "static_id" },
+          { name: "username" },
+        ]
       },
-    ],
-  })
-}
+    ]
+  });
+};

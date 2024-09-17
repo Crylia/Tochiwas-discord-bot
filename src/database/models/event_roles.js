@@ -1,28 +1,28 @@
-const Sequelize = require('sequelize')
-module.exports = function(sequelize, DataTypes) {
-  return sequelize.define('event_roles', {
+const Sequelize = require('sequelize');
+module.exports = function (sequelize, DataTypes) {
+  const EventRole = sequelize.define('event_roles', {
     event_id: {
       type: DataTypes.INTEGER,
       allowNull: true,
       references: {
         model: 'event',
-        key: 'id',
-      },
+        key: 'id'
+      }
     },
     role: {
       type: DataTypes.STRING(50),
-      allowNull: false,
+      allowNull: false
     },
     icon_name: {
       type: DataTypes.STRING(50),
-      allowNull: true,
+      allowNull: true
     },
     role_id: {
       autoIncrement: true,
       type: DataTypes.INTEGER,
       allowNull: false,
-      primaryKey: true,
-    },
+      primaryKey: true
+    }
   }, {
     sequelize,
     tableName: 'event_roles',
@@ -30,12 +30,18 @@ module.exports = function(sequelize, DataTypes) {
     timestamps: false,
     indexes: [
       {
-        name: 'event_roles_pkey',
+        name: "event_roles_pkey",
         unique: true,
         fields: [
-          { name: 'role_id' },
-        ],
+          { name: "role_id" },
+        ]
       },
-    ],
-  })
-}
+    ]
+  });
+
+  EventRole.associate = function (models) {
+    EventRole.belongsTo(models.event, { as: 'event', foreignKey: 'event_id' })
+  }
+
+  return EventRole
+};

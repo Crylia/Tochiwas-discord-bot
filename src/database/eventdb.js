@@ -1,25 +1,51 @@
-const { 
-  event_schedule: EventTimes, 
-  event_role_view: EventRoleView, 
-  event_roles: EventRoles, 
+const {
+  event_schedule: EventSchedule,
+  event_roles: EventRoles,
+  event: Event,
 } = require('./models')
 
 const ReadEvents = async () => {
   try {
-    const events = await EventTimes.findAll()
-    return events
+    const events = await EventSchedule.findAll({
+      include: [{
+        model: Event,
+        as: 'event'
+      }]
+    })
+
+    const eventsMap = events.map(event => ({
+      schedule_id: event.id,
+      event_name: event.event.name,
+      start_time: event.start_time,
+      end_time: event.end_time,
+      day_of_week: event.day_of_week
+    }))
+
+    return eventsMap
   } catch (error) {
     console.error('Error reading event entries:', error)
     return false
   }
 }
 
+
 const GetEventRole = async () => {
   try {
-    const eventRoles = await EventRoleView.findAll()
+    const eventRoles = await EventRoles.findAll({
+      include: [{
+        model: Event,
+        as: 'event'
+      }],
+      attributes: [
+        'role', 'event.name'
+      ]
+    })
     const rolesEventMap = new Map()
 
-    eventRoles.forEach(row => rolesEventMap.set(row.event_name, row.role))
+    eventRoles.forEach(row => {
+      if (!row.event) return
+      rolesEventMap.set(row.event.name, row.role)
+    })
 
     return rolesEventMap
   } catch (error) {
@@ -27,6 +53,7 @@ const GetEventRole = async () => {
     return false
   }
 }
+
 
 const GetIconRole = async () => {
   try {

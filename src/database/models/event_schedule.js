@@ -1,32 +1,33 @@
-const Sequelize = require('sequelize')
-module.exports = function(sequelize, DataTypes) {
-  return sequelize.define('event_schedule', {
+const Sequelize = require('sequelize');
+
+module.exports = function (sequelize, DataTypes) {
+  const EventSchedule = sequelize.define('event_schedule', {
     id: {
       autoIncrement: true,
       type: DataTypes.INTEGER,
       allowNull: false,
-      primaryKey: true,
+      primaryKey: true
     },
     event_id: {
       type: DataTypes.INTEGER,
       allowNull: false,
       references: {
         model: 'event',
-        key: 'id',
-      },
+        key: 'id'
+      }
     },
     day_of_week: {
       type: DataTypes.STRING(9),
-      allowNull: true,
+      allowNull: true
     },
     start_time: {
       type: DataTypes.TIME,
-      allowNull: true,
+      allowNull: true
     },
     end_time: {
       type: DataTypes.TIME,
-      allowNull: true,
-    },
+      allowNull: true
+    }
   }, {
     sequelize,
     tableName: 'event_schedule',
@@ -36,10 +37,14 @@ module.exports = function(sequelize, DataTypes) {
       {
         name: 'event_schedule_pkey',
         unique: true,
-        fields: [
-          { name: 'id' },
-        ],
-      },
-    ],
-  })
-}
+        fields: [{ name: 'id' }]
+      }
+    ]
+  });
+
+  EventSchedule.associate = function (models) {
+    EventSchedule.belongsTo(models.event, { as: 'event', foreignKey: 'event_id' });
+  };
+
+  return EventSchedule;
+};
