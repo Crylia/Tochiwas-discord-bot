@@ -19,7 +19,7 @@ const convertToISO = (time, date) => {
 const convertToUTC = (time) => {
   const [hours, minutes, seconds] = time.split(':').map(Number)
   const date = new Date()
-  date.setUTCHours(hours - 2, minutes, seconds)
+  date.setUTCHours(hours - 1, minutes, seconds)
   return date.toISOString().split('.')[0]
 }
 
@@ -47,7 +47,6 @@ const startEventCheckCron = async (client) => {
       eventCache.forEach(async (event) => {
         let { schedule_id, event_name, start_time, end_time, day_of_week } = event
         if (!((!day_of_week || day_of_week === getDayOfWeek()) && isReminderTime(convertToUTC(start_time)))) return
-
         const rolesEventMap = await GetEventRole()
         const role = guild.roles.cache.find(r => r.name === rolesEventMap.get(event_name))
         const roleId = role ? role.id : null
@@ -68,6 +67,23 @@ const startEventCheckCron = async (client) => {
 
         await channel.send({ embeds: [embed] }).catch(console.error)
       })
+    }
+  })
+  cron.schedule('0 6 * * *', async () => {
+    for (const [_, oauthGuild] of await client.guilds.fetch()) {
+      const guild = await oauthGuild.fetch()
+      const channel = (await guild.channels.fetch()).find(ch => ch.name === 'reminder')
+
+      if (!channel) continue
+
+      try {
+        const messages = await channel.messages.fetch({ limit: 1000 })
+        messages.forEach(async (message) => {
+          await message.delete().catch(console.error)
+        })
+      } catch (error) {
+        console.error('Error clearing messages:', error)
+      }
     }
   })
 }

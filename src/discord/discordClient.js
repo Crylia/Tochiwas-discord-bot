@@ -1,4 +1,4 @@
-const { Client, GatewayIntentBits, Partials, Routes, PermissionFlagsBits, PermissionsBitField, ChannelFlags, ChannelManager, ChannelFlagsBitField, ChannelType } = require('discord.js')
+const { Client, GatewayIntentBits, Partials, Routes, PermissionFlagsBits, PermissionsBitField, ChannelFlags, ChannelManager, ChannelFlagsBitField, ChannelType, Colors } = require('discord.js')
 require('dotenv').config()
 const { REST } = require('@discordjs/rest')
 const { SlashCommandBuilder } = require('@discordjs/builders')
@@ -37,8 +37,6 @@ const { startEventCheckCron } = require('../tasks/eventReminder')
 
 const rest = new REST({ version: '10' }).setToken(process.env.BOT_TOKEN)
 
-let server = null
-
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
@@ -46,6 +44,7 @@ const client = new Client({
     GatewayIntentBits.GuildMembers,
     GatewayIntentBits.MessageContent,
     GatewayIntentBits.GuildMessageReactions,
+
   ],
   partials: [
     Partials.Channel,
@@ -130,26 +129,28 @@ client.on('interactionCreate', async interaction => {
     } case 'static-create': {
       const static_name = interaction.options.getString('name')
       const static_size = interaction.options.getString('size')
-      let static_members = [interaction.user.username]
+      const member_string = interaction.options.getString('members')
+      let static_members = [interaction.user]
 
       try {
         const static_role = await interaction.guild.roles.create({
           name: static_name,
-          color: 'BLUE',
+          color: Colors.Blue,
         })
 
         interaction.member.roles.add(static_role)
 
-        for (const username of (interaction.options.getString('members')).split(',').map(name => name.trim())) {
-          const member = interaction.guild.members.cache.find(member => member.user.username === username)
+        if (member_string) {
+          for (const username of member_string.split(',').map(name => name.trim())) {
+            const member = (await interaction.guild.members.fetch()).find(member => member.user.username === username.toLowerCase())
 
-          if (member) {
-            static_members.push(member)
-            member.roles.add(static_role)
-          } else
-            console.log(`WARNING: Creating static: ${static_name} member named ${username} not found`)
+            if (member) {
+              static_members.push(member.user)
+              member.roles.add(static_role)
+            } else
+              console.log(`WARNING: Creating static: ${static_name} member named ${username} not found`)
+          }
         }
-
         let category = interaction.guild.channels.cache.find(channel => channel.name === 'Statics' && channel.type === ChannelType.GuildCategory)
 
         if (!category) {
@@ -164,11 +165,11 @@ client.on('interactionCreate', async interaction => {
           parent: category.id,
           permissionOverwrites: [
             {
-              id: interaction.guild.id, // @everyone role
-              deny: [PermissionsBitField.Flags.ViewChannel] // Deny view for everyone
+              id: interaction.guild.id,
+              deny: [PermissionsBitField.Flags.ViewChannel]
             },
             {
-              id: static_role.id, // Allow view for the static role
+              id: static_role.id,
               allow: [PermissionsBitField.Flags.ViewChannel],
             }
           ]
@@ -180,17 +181,16 @@ client.on('interactionCreate', async interaction => {
           parent: category.id,
           permissionOverwrites: [
             {
-              id: interaction.guild.id, // @everyone role
-              deny: [PermissionsBitField.Flags.ViewChannel] // Deny view for everyone
+              id: interaction.guild.id,
+              deny: [PermissionsBitField.Flags.ViewChannel]
             },
             {
-              id: static_role.id, // Allow view for the static role
+              id: static_role.id,
               allow: [PermissionsBitField.Flags.ViewChannel],
             }
           ],
         })
-
-        const res = handleStaticAdd(static_name, static_members[0], static_members, static_size, static_role, static_text_channel, static_voice_channel)
+        const res = handleStaticAdd(static_name, static_members[0].username, static_members, static_size, static_role.id, static_text_channel.id, static_voice_channel.id)
 
         if (res) {
           interaction.reply({
@@ -204,6 +204,9 @@ client.on('interactionCreate', async interaction => {
           })
       } catch (error) {
         console.error('Error creating static or assigning roles:', error)
+
+        interaction.guild.channels.delete(static_text_channel)
+        interaction.guild.channels.delete(static_voice_channel)
         interaction.reply({
           content: 'An error occurred while creating the static. Please try again or contact an admin.',
           ephemeral: true,
@@ -223,20 +226,20 @@ client.on('interactionCreate', async interaction => {
   }
 })
 
-client.on('messageReactionAdd', async (reaction, user) => {
+/* client.on('messageReactionAdd', async (reaction, user) => {
   messageReactionAdd(user, reaction)
 })
 
 client.on('messageReactionRemove', async (reaction, user) => {
   messageReactionRemove(user, reaction)
-})
+}) */
 
 client.once('ready', async () => {
   console.log(`Logged in as ${client.user.tag} `)
   startBirthdayCheckCron(client)
   startEventCheckCron(client)
   updateGlobalMessage(client)
-  initReactionPerRole(client)
+  //initReactionPerRole(client)
 })
 
 const connectDiscord = async () => {
@@ -280,7 +283,7 @@ const connectDiscord = async () => {
             .setDescription('The in-game name of the player')
             .setRequired(true)
         ),
-      new SlashCommandBuilder()
+      /* new SlashCommandBuilder()
         .setName('static-create')
         .setDescription('Create a new static with a voice and text channel just for your members.')
         .addStringOption(option =>
@@ -297,7 +300,7 @@ const connectDiscord = async () => {
           option.setName('members')
             .setDescription('Optionally assign members here by a comma seperated list (user1,user2,user3...).')
             .setRequired(false)
-        )
+        ) */
     ].map(command => command.toJSON())
 
     await rest.put(

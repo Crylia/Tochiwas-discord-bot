@@ -1,9 +1,11 @@
 const { CreateStatic, ReadStatic, DeleteStatic } = require('../database/staticdb')
 
-const handleStaticAdd = async (name, creator, members, size) => {
-  if (!name || !creator || !members || !size) return false
+const handleStaticAdd = async (name, creator, members, size, role_id, text_channel_id, voice_channel_id) => {
+  if (!name || !creator || !role_id || !text_channel_id || !voice_channel_id) return false
 
-  const result = await CreateStatic(name, creator, members, size)
+  const result = await CreateStatic(
+    name, creator, members, size, role_id, text_channel_id, voice_channel_id
+  )
 
   return result
 }
