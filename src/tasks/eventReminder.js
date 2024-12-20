@@ -69,20 +69,22 @@ const startEventCheckCron = async (client) => {
       })
     }
   })
-  cron.schedule('0 6 * * *', async () => {
+  cron.schedule('0 7 * * *', async () => {
     for (const [_, oauthGuild] of await client.guilds.fetch()) {
       const guild = await oauthGuild.fetch()
       const channel = (await guild.channels.fetch()).find(ch => ch.name === 'reminder')
 
       if (!channel) continue
 
-      try {
-        const messages = await channel.messages.fetch({ limit: 1000 })
-        messages.forEach(async (message) => {
-          await message.delete().catch(console.error)
-        })
-      } catch (error) {
-        console.error('Error clearing messages:', error)
+      for (let index = 0; index < 10; index++) {
+        try {
+          const messages = await channel.messages.fetch({ limit: 100 })
+          messages.forEach(async (message) => {
+            await message.delete().catch(console.error)
+          })
+        } catch (error) {
+          console.error('Error clearing messages:', error)
+        }
       }
     }
   })

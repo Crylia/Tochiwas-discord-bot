@@ -236,10 +236,32 @@ client.on('messageReactionRemove', async (reaction, user) => {
 
 client.once('ready', async () => {
   console.log(`Logged in as ${client.user.tag} `)
+
+  const unauthorizedGuilds = client.guilds.cache.filter(guild => guild.id !== process.env.SERVER_ID)
+  const leavePromises = unauthorizedGuilds.map(async guild => {
+    console.log(`Leaving unauthorized server: ${guild.id}`);
+    await guild.leave();
+  })
+
+  await Promise.all(leavePromises)
+
   startBirthdayCheckCron(client)
   startEventCheckCron(client)
   updateGlobalMessage(client)
   //initReactionPerRole(client)
+})
+
+client.on('guildCreate', guild => {
+  if (guild.id !== process.env.SERVER_ID) {
+    console.log(`Unauthorized server joined: ${guild.name} (${guild.id})`)
+    guild.leave()
+      .then(() => console.log(`Left unauthorized server: ${guild.name}`))
+      .catch(console.error)
+  }
+})
+
+client.on('guildDelete', guild => {
+  console.log(`Bot removed from server: ${guild.name} (${guild.id})`)
 })
 
 const connectDiscord = async () => {
