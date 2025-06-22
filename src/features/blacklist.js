@@ -29,6 +29,8 @@ const createBlacklistEmbeds = (playerEntries, maxChars = 30) => {
   let fieldCount = 0
   let pageIndex = 1
 
+  playerEntries.sort((a, b) => a[0].localeCompare(b[0]))
+
   playerEntries.forEach(([playerName, reason]) => {
     let splitReason = []
     while (reason.length > maxChars) {

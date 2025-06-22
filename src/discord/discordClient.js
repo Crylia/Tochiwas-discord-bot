@@ -35,6 +35,8 @@ const {
 const { startBirthdayCheckCron } = require('../tasks/checkBirthday')
 const { startEventCheckCron } = require('../tasks/eventReminder')
 
+const { showRoleMembers } = require("../features/showRoleMembers")
+
 const rest = new REST({ version: '10' }).setToken(process.env.BOT_TOKEN)
 
 const client = new Client({
@@ -214,7 +216,8 @@ client.on('interactionCreate', async interaction => {
       }
       break
     } case 'static-delete': {
-
+    } case 'showrole': {
+      await showRoleMembers(interaction)
       break
 
     } case 'static-show': {
@@ -303,6 +306,14 @@ const connectDiscord = async () => {
         .addStringOption(option =>
           option.setName('player')
             .setDescription('The in-game name of the player')
+            .setRequired(true)
+        ),
+      new SlashCommandBuilder()
+        .setName('showrole')
+        .setDescription('Shows all users with a given role')
+        .addRoleOption(option =>
+          option.setName('role')
+            .setDescription('The role to look up')
             .setRequired(true)
         ),
       /* new SlashCommandBuilder()
