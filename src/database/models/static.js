@@ -1,6 +1,6 @@
 const Sequelize = require('sequelize');
 module.exports = function (sequelize, DataTypes) {
-  return sequelize.define('static', {
+  const Static = sequelize.define('static', {
     id: {
       autoIncrement: true,
       type: DataTypes.INTEGER,
@@ -8,7 +8,7 @@ module.exports = function (sequelize, DataTypes) {
       primaryKey: true
     },
     name: {
-      type: DataTypes.STRING(12),
+      type: DataTypes.STRING(100),
       allowNull: false,
       unique: "unique_name"
     },
@@ -25,16 +25,16 @@ module.exports = function (sequelize, DataTypes) {
       allowNull: true
     },
     role_id: {
-      type: DataTypes.INTEGER,
-      allowNull: true // or false depending on your requirements
+      type: DataTypes.STRING,
+      allowNull: true
     },
     text_channel_id: {
-      type: DataTypes.STRING, // or INTEGER if IDs are numeric
-      allowNull: true // or false depending on your requirements
+      type: DataTypes.STRING,
+      allowNull: true
     },
     voice_channel_id: {
-      type: DataTypes.STRING, // or INTEGER if IDs are numeric
-      allowNull: true // or false depending on your requirements
+      type: DataTypes.STRING,
+      allowNull: true
     }
   }, {
     sequelize,
@@ -58,4 +58,10 @@ module.exports = function (sequelize, DataTypes) {
       },
     ]
   });
+
+  Static.associate = function (models) {
+    Static.hasMany(models.static_members, { as: 'static_members', foreignKey: 'static_id' });
+  };
+
+  return Static;
 };

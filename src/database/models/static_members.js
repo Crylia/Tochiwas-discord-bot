@@ -1,6 +1,6 @@
 const Sequelize = require('sequelize');
 module.exports = function (sequelize, DataTypes) {
-  return sequelize.define('static_members', {
+  const StaticMembers = sequelize.define('static_members', {
     static_id: {
       type: DataTypes.INTEGER,
       allowNull: false,
@@ -35,4 +35,11 @@ module.exports = function (sequelize, DataTypes) {
       },
     ]
   });
+
+  StaticMembers.associate = function (models) {
+    StaticMembers.belongsTo(models.static, { as: 'static', foreignKey: 'static_id' });
+    StaticMembers.belongsTo(models.discorduser, { as: 'user', foreignKey: 'username' });
+  };
+
+  return StaticMembers;
 };

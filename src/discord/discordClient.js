@@ -26,9 +26,7 @@ const {
   handleStaticAdd,
   handleStaticGet,
   handleStaticDelete,
-  handleStaticUpdateName,
   handleStaticUpdateUser,
-  handleStaticUpdateUsers,
   handleStaticUpdateSize,
 } = require('../features/static')
 
@@ -134,100 +132,184 @@ client.on('interactionCreate', async interaction => {
         await interaction.reply({ content: 'Your birthday has been deleted.', ephemeral: true }) :
         await interaction.reply({ content: 'You don\'t have a birthday set.', ephemeral: true })
       break
-    } case 'static-create': {
-      const static_name = interaction.options.getString('name')
-      const static_size = interaction.options.getString('size')
-      const member_string = interaction.options.getString('members')
-      let static_members = [interaction.user]
+    } case 'static-delete': {
+      const name = interaction.options.getString('name')
+      const staticData = await handleStaticGet(name)
+
+      if (!staticData) {
+        await interaction.reply({ content: `Static **${name}** not found.`, ephemeral: true })
+        break
+      }
 
       try {
-        const static_role = await interaction.guild.roles.create({
-          name: static_name,
-          color: Colors.Blue,
-        })
+        const role = interaction.guild.roles.cache.get(staticData.role_id)
+        const textCh = interaction.guild.channels.cache.get(staticData.text_channel_id)
+        const voiceCh = interaction.guild.channels.cache.get(staticData.voice_channel_id)
 
-        interaction.member.roles.add(static_role)
+        if (textCh) await textCh.delete()
+        if (voiceCh) await voiceCh.delete()
+        if (role) await role.delete()
+      } catch (err) {
+        console.error('Error cleaning up Discord resources:', err)
+        await interaction.reply({ content: 'Static deleted from DB, but some Discord channels/roles could not be found or deleted.', ephemeral: true })
+        await handleStaticDelete(name)
+        break
+      }
 
-        if (member_string) {
-          for (const username of member_string.split(',').map(name => name.trim())) {
-            const member = (await interaction.guild.members.fetch()).find(member => member.user.username === username.toLowerCase())
-
-            if (member) {
-              static_members.push(member.user)
-              member.roles.add(static_role)
-            } else
-              console.log(`WARNING: Creating static: ${static_name} member named ${username} not found`)
-          }
-        }
-        let category = interaction.guild.channels.cache.find(channel => channel.name === 'Statics' && channel.type === ChannelType.GuildCategory)
-
-        if (!category) {
-          console.log(`ERROR: Creating static, couldn't find category Statics, ABBORTING`)
-
-          interaction.guild.roles.remove(static_role)
-        }
-
-        const static_text_channel = await interaction.guild.channels.create({
-          name: static_name,
-          type: ChannelType.GuildText,
-          parent: category.id,
-          permissionOverwrites: [
-            {
-              id: interaction.guild.id,
-              deny: [PermissionsBitField.Flags.ViewChannel]
-            },
-            {
-              id: static_role.id,
-              allow: [PermissionsBitField.Flags.ViewChannel],
-            }
-          ]
-        })
-
-        const static_voice_channel = await interaction.guild.channels.create({
-          name: static_name,
-          type: ChannelType.GuildVoice,
-          parent: category.id,
-          permissionOverwrites: [
-            {
-              id: interaction.guild.id,
-              deny: [PermissionsBitField.Flags.ViewChannel]
-            },
-            {
-              id: static_role.id,
-              allow: [PermissionsBitField.Flags.ViewChannel],
-            }
-          ],
-        })
-        const res = handleStaticAdd(static_name, static_members[0].username, static_members, static_size, static_role.id, static_text_channel.id, static_voice_channel.id)
-
-        if (res) {
-          interaction.reply({
-            content: `Static ${static_name} created. Current members are ${static_members}.`,
-            ephemeral: true
-          })
-        } else
-          interaction.reply({
-            content: `Error creating static, please contact @Crylia for help`,
-            ephemeral: true
-          })
-      } catch (error) {
-        console.error('Error creating static or assigning roles:', error)
-
-        interaction.guild.channels.delete(static_text_channel)
-        interaction.guild.channels.delete(static_voice_channel)
-        interaction.reply({
-          content: 'An error occurred while creating the static. Please try again or contact an admin.',
-          ephemeral: true,
-        })
+      const deleted = await handleStaticDelete(name)
+      if (deleted) {
+        await interaction.reply({ content: `Static **${name}** has been deleted successfully.`, ephemeral: true })
+      } else {
+        await interaction.reply({ content: 'Error deleting static from database.', ephemeral: true })
       }
       break
-    } case 'static-delete': {
+    } case 'static-create': {
+      const name = interaction.options.getString('name')
+      const size = interaction.options.getInteger('size')
+      const creator = interaction.user.username
+      const guild = interaction.guild
+
+      await interaction.deferReply({ ephemeral: true })
+
+      const existing = await handleStaticGet(name)
+      if (existing) {
+        await interaction.editReply(`❌ A static named **${name}** already exists.`)
+        break
+      }
+
+      const category = guild.channels.cache.find(c =>
+        c.type === ChannelType.GuildCategory &&
+        (c.name.toLowerCase() === 'static' || c.name.toLowerCase() === 'statics')
+      )
+
+      try {
+        const role = await guild.roles.create({
+          name: name,
+          color: Colors.Blue,
+          reason: `Static role for ${name}`,
+        })
+
+        const permissionOverwrites = [
+          {
+            id: guild.id,
+            deny: [PermissionFlagsBits.ViewChannel],
+          },
+          {
+            id: role.id,
+            allow: [PermissionFlagsBits.ViewChannel],
+          },
+          {
+            id: client.user.id,
+            allow: [PermissionFlagsBits.ViewChannel],
+          }
+        ]
+
+        const textChannel = await guild.channels.create({
+          name: `${name}-chat`,
+          type: ChannelType.GuildText,
+          parent: category ? category.id : "Statics",
+          permissionOverwrites: permissionOverwrites,
+        })
+
+        const voiceChannel = await guild.channels.create({
+          name: `${name}-voice`,
+          type: ChannelType.GuildVoice,
+          parent: category ? category.id : "Statics",
+          permissionOverwrites: permissionOverwrites,
+        })
+
+        const memberList = [{ username: creator }]
+
+        const success = await handleStaticAdd(
+          name,
+          creator,
+          memberList,
+          size,
+          role.id,
+          textChannel.id,
+          voiceChannel.id
+        )
+
+        if (success) {
+          await handleStaticUpdateUser(name, creator, 'add')
+
+          const member = await guild.members.fetch(interaction.user.id)
+          await member.roles.add(role)
+
+          await interaction.editReply(`✅ Static **${name}** created!\n- Role: <@&${role.id}>\n- Channels: <#${textChannel.id}>`)
+        } else {
+          await textChannel.delete()
+          await voiceChannel.delete()
+          await role.delete()
+          await interaction.editReply('❌ Database error. Rolled back Discord changes.')
+        }
+
+      } catch (error) {
+        console.error('Error creating static:', error)
+        await interaction.editReply('❌ An error occurred while creating Discord resources. Check bot permissions.')
+      }
+      break
+    } case 'static-show': {
+      const name = interaction.options.getString('name')
+      const staticData = await handleStaticGet(name)
+
+      if (staticData) {
+        const memberList = staticData.members.length > 0 ? staticData.members.join(', ') : 'No members'
+        await interaction.reply({
+          content: `**Static:** ${staticData.name}\n**Creator:** ${staticData.creator}\n**Size:** ${staticData.size}\n**Members:** ${memberList}`,
+          ephemeral: true
+        })
+      } else {
+        await interaction.reply({ content: `Static **${name}** not found.`, ephemeral: true })
+      }
+      break
+    } case 'static-member': {
+      const action = interaction.options.getString('action')
+      const staticName = interaction.options.getString('static')
+      const user = interaction.options.getUser('user')
+
+      const staticData = await handleStaticGet(staticName)
+      if (!staticData) {
+        await interaction.reply({ content: `Static **${staticName}** not found.`, ephemeral: true })
+        break
+      }
+
+      const role = interaction.guild.roles.cache.get(staticData.role_id)
+      const member = await interaction.guild.members.fetch(user.id)
+
+      if (!role) {
+        await interaction.reply({ content: 'Error: Static role not found in Discord.', ephemeral: true })
+        break
+      }
+
+      if (action === 'add') {
+        const status = await handleStaticUpdateUser(staticName, user.username, 'add')
+
+        if (status === 'success') {
+          await member.roles.add(role)
+          await interaction.reply({ content: `✅ Added **${user.username}** to static **${staticName}**.`, ephemeral: true })
+        } else if (status === 'full') {
+          await interaction.reply({ content: `❌ Static **${staticName}** is full! (${staticData.members.length}/${staticData.size})`, ephemeral: true })
+        } else if (status === 'already_joined') {
+          await member.roles.add(role)
+          await interaction.reply({ content: `qp **${user.username}** is already in **${staticName}**.`, ephemeral: true })
+        } else {
+          await interaction.reply({ content: '❌ Database error: Could not add member.', ephemeral: true })
+        }
+
+      } else {
+        const status = await handleStaticUpdateUser(staticName, user.username, 'remove')
+
+        if (status === 'success') {
+          await member.roles.remove(role)
+          await interaction.reply({ content: `✅ Removed **${user.username}** from static **${staticName}**.`, ephemeral: true })
+        } else {
+          await interaction.reply({ content: '❌ Database error: Could not remove member.', ephemeral: true })
+        }
+      }
+      break
     } case 'showrole': {
       await showRoleMembers(interaction)
-      break
-
-    } case 'static-show': {
-
       break
     } case 'event-list': {
       const events = await ReadEvents()
@@ -242,8 +324,7 @@ client.on('interactionCreate', async interaction => {
 
       await interaction.reply({ content: `**Current Event Schedule:**\n${listString}`, ephemeral: true })
       break
-    }
-    case 'event-add': {
+    } case 'event-add': {
       const name = interaction.options.getString('name')
       const start = interaction.options.getString('start_time')
       const end = interaction.options.getString('end_time')
@@ -264,8 +345,7 @@ client.on('interactionCreate', async interaction => {
         await interaction.reply({ content: '❌ Failed to add event. Check logs.', ephemeral: true })
       }
       break
-    }
-    case 'event-remove': {
+    } case 'event-remove': {
       const id = interaction.options.getInteger('id')
       const success = await DeleteEventSchedule(id)
 
@@ -390,28 +470,59 @@ const connectDiscord = async () => {
             .setDescription('The role to look up')
             .setRequired(true)
         ),
-      /* new SlashCommandBuilder()
-        .setName('static-create')
-        .setDescription('Create a new static with a voice and text channel just for your members.')
+      new SlashCommandBuilder()
+        .setName('static-delete')
+        .setDescription('Delete a static and its channels')
         .addStringOption(option =>
           option.setName('name')
-            .setDescription('Name of the static, the voice and test channel will be named after this.')
+            .setDescription('Name of the static to delete')
+            .setRequired(true)
+        ),
+      new SlashCommandBuilder()
+        .setName('static-show')
+        .setDescription('Show details of a static')
+        .addStringOption(option =>
+          option.setName('name')
+            .setDescription('Name of the static')
+            .setRequired(true)
+        ),
+      new SlashCommandBuilder()
+        .setName('static-create')
+        .setDescription('Create a new static with channels and role')
+        .addStringOption(option =>
+          option.setName('name')
+            .setDescription('Name of the static (e.g. "Kyumgall")')
+            .setRequired(true))
+        .addIntegerOption(option =>
+          option.setName('size')
+            .setDescription('Max size of the static')
+            .setRequired(true)),
+      new SlashCommandBuilder()
+        .setName('static-member')
+        .setDescription('Manage members of a static')
+        .addStringOption(option =>
+          option.setName('action')
+            .setDescription('add or remove')
+            .setRequired(true)
+            .addChoices(
+              { name: 'Add', value: 'add' },
+              { name: 'Remove', value: 'remove' }
+            )
+        )
+        .addStringOption(option =>
+          option.setName('static')
+            .setDescription('Name of the static')
             .setRequired(true)
         )
-        .addStringOption(option =>
-          option.setName('size')
-            .setDescription('Number of members in the static.')
-            .setRequired(false)
-        )
-        .addStringOption(option =>
-          option.setName('members')
-            .setDescription('Optionally assign members here by a comma seperated list (user1,user2,user3...).')
-            .setRequired(false)
-        ) */
+        .addUserOption(option =>
+          option.setName('user')
+            .setDescription('The user to add/remove')
+            .setRequired(true)
+        ),
     ].map(command => command.toJSON())
 
     await rest.put(
-      Routes.applicationCommands(process.env.CLIENT_ID),
+      Routes.applicationGuildCommands(process.env.CLIENT_ID, process.env.SERVER_ID),
       { body: commands }
     )
     console.log('Successfully reloaded application (/) commands.')

@@ -24,7 +24,7 @@ const isReminderTime = (eventStartUTC) => {
   const now = new Date()
   const [eventHours, eventMinutes] = eventStartUTC.split('T')[1].split(':').map(Number)
   const eventStartDateTime = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), eventHours, eventMinutes))
-  const reminderTime = new Date(eventStartDateTime.getTime() - 15 * 60 * 1000)
+  const reminderTime = new Date(eventStartDateTime.getTime() - 30 * 60 * 1000)
 
   return now >= reminderTime && now < eventStartDateTime
 }
@@ -37,7 +37,7 @@ const startEventCheckCron = async (client) => {
 
     for (const [_, oauthGuild] of await client.guilds.fetch()) {
       const guild = await oauthGuild.fetch()
-      const channel = (await guild.channels.fetch()).find(ch => ch.name === 'reminder')
+      const channel = (await guild.channels.fetch()).find(ch => ch.id === '1290696505786896475')
 
       if (!channel) continue
 
@@ -70,7 +70,7 @@ const startEventCheckCron = async (client) => {
   cron.schedule('0 5 * * *', async () => {
     for (const [_, oauthGuild] of await client.guilds.fetch()) {
       const guild = await oauthGuild.fetch()
-      const channel = (await guild.channels.fetch()).find(ch => ch.name === 'reminder')
+      const channel = (await guild.channels.fetch()).find(ch => ch.id === '1290696505786896475')
 
       if (!channel) continue
 

@@ -79,9 +79,80 @@ const DeleteStatic = async (name) => {
     return false
   }
 }
+const AddStaticMember = async (staticName, username) => {
+  try {
+    const staticEntry = await Static.findOne({ where: { name: staticName } })
+    if (!staticEntry) return false
+
+    const [user] = await DiscordUser.findOrCreate({
+      where: { name: username },
+      defaults: { name: username },
+    })
+
+    await StaticMembers.findOrCreate({
+      where: {
+        static_id: staticEntry.id,
+        username: user.name,
+      },
+    })
+    return true
+  } catch (error) {
+    console.error('Error adding static member:', error)
+    return false
+  }
+}
+
+const RemoveStaticMember = async (staticName, username) => {
+  try {
+    const staticEntry = await Static.findOne({ where: { name: staticName } })
+    if (!staticEntry) return false
+
+    const deleted = await StaticMembers.destroy({
+      where: {
+        static_id: staticEntry.id,
+        username: username,
+      },
+    })
+    return deleted > 0
+  } catch (error) {
+    console.error('Error removing static member:', error)
+    return false
+  }
+}
+
+const UpdateStaticSize = async (staticName, size) => {
+  try {
+    const [updated] = await Static.update({ size }, { where: { name: staticName } })
+    return updated > 0
+  } catch (error) {
+    console.error('Error updating static size:', error)
+    return false
+  }
+}
+
+const GetStaticMembers = async (staticName) => {
+  try {
+    const staticEntry = await Static.findOne({
+      where: { name: staticName },
+      include: [{
+        model: StaticMembers,
+        as: 'static_members'
+      }]
+    })
+    if (!staticEntry) return []
+    return staticEntry.static_members.map(sm => sm.username)
+  } catch (error) {
+    console.error('Error fetching static members:', error)
+    return []
+  }
+}
 
 module.exports = {
   CreateStatic,
   ReadStatic,
   DeleteStatic,
+  AddStaticMember,
+  RemoveStaticMember,
+  UpdateStaticSize,
+  GetStaticMembers
 }

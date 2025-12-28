@@ -1,4 +1,12 @@
-const { CreateStatic, ReadStatic, DeleteStatic } = require('../database/staticdb')
+const {
+  CreateStatic,
+  ReadStatic,
+  DeleteStatic,
+  AddStaticMember,
+  RemoveStaticMember,
+  UpdateStaticSize,
+  GetStaticMembers
+} = require('../database/staticdb')
 
 const handleStaticAdd = async (name, creator, members, size, role_id, text_channel_id, voice_channel_id) => {
   if (!name || !creator || !role_id || !text_channel_id || !voice_channel_id) return false
@@ -12,10 +20,11 @@ const handleStaticAdd = async (name, creator, members, size, role_id, text_chann
 
 const handleStaticGet = async (name) => {
   if (!name) return false
+  const staticData = await ReadStatic(name)
+  if (!staticData) return false
 
-  const result = await ReadStatic(name)
-
-  return result
+  const members = await GetStaticMembers(name)
+  return { ...staticData.toJSON(), members }
 }
 
 const handleStaticDelete = async (name) => {
@@ -29,22 +38,46 @@ const handleStaticDelete = async (name) => {
 const handleStaticUpdateName = async (newName) => {
 
 }
-const handleStaticUpdateUser = async (user, action) => {
-
-}
 const handleStaticUpdateUsers = async (users, action) => {
 
 }
-const handleStaticUpdateSize = async (newSize) => {
 
+const handleStaticUpdateUser = async (name, user, action) => {
+  if (!name || !user) return 'error'
+
+  if (action === 'add') {
+    const staticData = await ReadStatic(name)
+    if (!staticData) return 'not_found'
+
+    const currentMembers = await GetStaticMembers(name)
+
+    if (currentMembers.includes(user)) {
+      return 'already_joined'
+    }
+
+    if (currentMembers.length >= staticData.size) {
+      return 'full'
+    }
+
+    const result = await AddStaticMember(name, user)
+    return result ? 'success' : 'error'
+
+  } else if (action === 'remove') {
+    const result = await RemoveStaticMember(name, user)
+    return result ? 'success' : 'error'
+  }
+  return 'error'
+}
+
+const handleStaticUpdateSize = async (name, newSize) => {
+  if (!name || !newSize) return false
+  return await UpdateStaticSize(name, newSize)
 }
 
 module.exports = {
   handleStaticAdd,
   handleStaticGet,
   handleStaticDelete,
-  handleStaticUpdateName,
   handleStaticUpdateUser,
-  handleStaticUpdateUsers,
   handleStaticUpdateSize
 }
