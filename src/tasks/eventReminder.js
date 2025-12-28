@@ -37,7 +37,7 @@ const startEventCheckCron = async (client) => {
 
     for (const [_, oauthGuild] of await client.guilds.fetch()) {
       const guild = await oauthGuild.fetch()
-      const channel = (await guild.channels.fetch()).find(ch => ch.id === '1290696505786896475')
+      const channel = await client.channels.fetch('1290696505786896475')
 
       if (!channel) continue
 
@@ -70,7 +70,7 @@ const startEventCheckCron = async (client) => {
   cron.schedule('0 5 * * *', async () => {
     for (const [_, oauthGuild] of await client.guilds.fetch()) {
       const guild = await oauthGuild.fetch()
-      const channel = (await guild.channels.fetch()).find(ch => ch.id === '1290696505786896475')
+      const channel = await client.channels.fetch('1290696505786896475')
 
       if (!channel) continue
 

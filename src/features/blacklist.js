@@ -68,12 +68,7 @@ const createBlacklistEmbeds = (playerEntries, maxChars = 30) => {
 
 const updateGlobalMessage = async (client) => {
   try {
-    let targetChannel = null
-
-    for (const [_, oauthGuild] of await client.guilds.fetch()) {
-      targetChannel = (await (await oauthGuild.fetch()).channels.fetch()).find(ch => ch.id === '1272953247912558704')
-      break
-    }
+    const targetChannel = await client.channels.fetch('1272953247912558704')
 
     if (!targetChannel) {
       console.error('Channel with id 1272953247912558704 not found.')
