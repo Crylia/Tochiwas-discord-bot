@@ -178,8 +178,7 @@ client.on('interactionCreate', async interaction => {
       }
 
       const category = guild.channels.cache.find(c =>
-        c.type === ChannelType.GuildCategory &&
-        (c.name.toLowerCase() === 'static' || c.name.toLowerCase() === 'statics')
+        c.type === ChannelType.GuildCategory && c.id === "1454779746583056427"
       )
 
       try {
