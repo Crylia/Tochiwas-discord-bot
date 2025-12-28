@@ -32,8 +32,14 @@ const {
   handleStaticUpdateSize,
 } = require('../features/static')
 
+const {
+  CreateEventSchedule,
+  DeleteEventSchedule,
+  ReadEvents
+} = require('../database/eventdb')
+const { startEventCheckCron, refreshEventCache } = require('../tasks/eventReminder')
+
 const { startBirthdayCheckCron } = require('../tasks/checkBirthday')
-const { startEventCheckCron } = require('../tasks/eventReminder')
 
 const { showRoleMembers } = require("../features/showRoleMembers")
 
@@ -223,6 +229,53 @@ client.on('interactionCreate', async interaction => {
     } case 'static-show': {
 
       break
+    } case 'event-list': {
+      const events = await ReadEvents()
+      if (!events || events.length === 0) {
+        await interaction.reply({ content: 'No events scheduled.', ephemeral: true })
+        break
+      }
+
+      const listString = events.map(e =>
+        `**ID: ${e.schedule_id}** | ${e.event_name} | ${e.day_of_week || 'Daily'} | ${e.start_time} - ${e.end_time}`
+      ).join('\n')
+
+      await interaction.reply({ content: `**Current Event Schedule:**\n${listString}`, ephemeral: true })
+      break
+    }
+    case 'event-add': {
+      const name = interaction.options.getString('name')
+      const start = interaction.options.getString('start_time')
+      const end = interaction.options.getString('end_time')
+      const day = interaction.options.getString('day') || null
+
+      const timeRegex = /^([01]\d|2[0-3]):([0-5]\d)(:[0-5]\d)?$/
+      if (!timeRegex.test(start) || !timeRegex.test(end)) {
+        await interaction.reply({ content: 'Invalid time format. Please use HH:MM or HH:MM:SS', ephemeral: true })
+        break
+      }
+
+      const success = await CreateEventSchedule(name, day, start, end)
+
+      if (success) {
+        await refreshEventCache()
+        await interaction.reply({ content: `✅ Event "**${name}**" added successfully!`, ephemeral: true })
+      } else {
+        await interaction.reply({ content: '❌ Failed to add event. Check logs.', ephemeral: true })
+      }
+      break
+    }
+    case 'event-remove': {
+      const id = interaction.options.getInteger('id')
+      const success = await DeleteEventSchedule(id)
+
+      if (success) {
+        await refreshEventCache()
+        await interaction.reply({ content: `✅ Event Schedule ID **${id}** deleted.`, ephemeral: true })
+      } else {
+        await interaction.reply({ content: `❌ Could not find or delete Event ID **${id}**.`, ephemeral: true })
+      }
+      break
     } default: {
       break
     }
@@ -272,6 +325,27 @@ const connectDiscord = async () => {
     console.log('Started refreshing application (/) commands.')
 
     const commands = [
+      new SlashCommandBuilder()
+        .setDefaultMemberPermissions(PermissionsBitField.Flags.Administrator)
+        .setName('event-remove')
+        .setDescription('Remove an event schedule by ID')
+        .addIntegerOption(option =>
+          option.setName('id').setDescription('The Schedule ID (use /event-list to find this)').setRequired(true)),
+      new SlashCommandBuilder()
+        .setDefaultMemberPermissions(PermissionsBitField.Flags.Administrator)
+        .setName('event-add')
+        .setDescription('Add a new event schedule')
+        .addStringOption(option =>
+          option.setName('name').setDescription('Name of the event').setRequired(true))
+        .addStringOption(option =>
+          option.setName('start_time').setDescription('Start Time (HH:MM:SS) in Germany Time').setRequired(true))
+        .addStringOption(option =>
+          option.setName('end_time').setDescription('End Time (HH:MM:SS) in Germany Time').setRequired(true))
+        .addStringOption(option =>
+          option.setName('day').setDescription('Day of week (e.g. Monday). Leave empty for Daily.').setRequired(false)),
+      new SlashCommandBuilder()
+        .setName('event-list')
+        .setDescription('List all active event schedules and their IDs'),
       new SlashCommandBuilder()
         .setName('birthday')
         .setDescription('Set yourself a birthday')

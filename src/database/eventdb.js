@@ -71,8 +71,43 @@ const GetIconRole = async () => {
   }
 }
 
+const CreateEventSchedule = async (eventName, dayOfWeek, startTime, endTime) => {
+  try {
+    const [eventEntry] = await Event.findOrCreate({
+      where: { name: eventName },
+      defaults: { name: eventName }
+    })
+
+    const scheduleEntry = await EventSchedule.create({
+      event_id: eventEntry.id,
+      day_of_week: dayOfWeek,
+      start_time: startTime,
+      end_time: endTime
+    })
+
+    return scheduleEntry
+  } catch (error) {
+    console.error('Error creating event schedule:', error)
+    return false
+  }
+}
+
+const DeleteEventSchedule = async (scheduleId) => {
+  try {
+    const rowsDeleted = await EventSchedule.destroy({
+      where: { id: scheduleId }
+    })
+    return rowsDeleted > 0
+  } catch (error) {
+    console.error('Error deleting event schedule:', error)
+    return false
+  }
+}
+
 module.exports = {
   ReadEvents,
   GetEventRole,
   GetIconRole,
+  CreateEventSchedule,
+  DeleteEventSchedule,
 }

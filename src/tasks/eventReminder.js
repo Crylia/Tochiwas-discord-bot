@@ -88,6 +88,12 @@ const startEventCheckCron = async (client) => {
   })
 }
 
+const refreshEventCache = async () => {
+  await FetchEvents()
+  console.log('Event cache manually refreshed.')
+}
+
 module.exports = {
   startEventCheckCron,
+  refreshEventCache
 }
